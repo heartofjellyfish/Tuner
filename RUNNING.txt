@@ -8,13 +8,19 @@ The simulator build is at build/Build/Products/Debug-iphonesimulator/TheTuner.ap
 The approved white / orange geometric-instrument design is implemented in SwiftUI
 and Canvas. Generated concept PNGs are references only, not stretched UI assets.
 
-Modes: Chromatic, Guitar, Ukulele.
-Guitar: Standard, Drop D, half step down, DADGAD, Open G, Open D.
-Ukulele: High G, Low G, Baritone, D tuning.
+Modes: Chromatic plus Guitar, Ukulele, Bass, Violin, Viola, Cello, Banjo, Mandolin.
+52 built-in presets, including 4/5/6-string bass and 7/8-string guitar.
+Tap the instrument or tuning selector to open the styled selection panel.
+The tuning panel includes Custom tuning; create a named 4–8-string/course preset
+with pitch-class and octave controls. Saved presets persist per instrument.
+Select a custom preset, then use Edit tuning to rename, change notes/string count,
+or delete it. Mandolin targets are paired courses; tune each string separately.
+
 Microphone starts automatically after permission. Tap a string to lock its target;
 tap again or AUTO to release. Chromatic supports holding the current target.
-Tap the A4 footer to calibrate 420–460 Hz. Reference tones and microphone pause
-are available in Settings. Equal temperament; in-tune indication is ±3 cents.
+The footer light indicates listening; microphone controls are in Settings.
+Tap the A4 footer to calibrate 420–460 Hz. Equal temperament, ±3 cents in tune.
+Reference tones and microphone pause/resume are available in Settings.
 
 Verification:
   Scripts/verify.sh
@@ -33,9 +39,10 @@ Debug-only launch arguments for repeatable screenshots/tests:
 Limitations:
 Synthetic accuracy is not a guarantee of microphone accuracy. Validate with real
 instruments and phones before making professional accuracy claims. Monophonic
-40–1500 Hz; polyphonic/chord analysis, stretched piano tuning, transposition and
+25–1500 Hz; polyphonic/chord analysis, stretched piano tuning, transposition and
 custom temperaments are outside this version. No TonalEnergy parity claim.
 
-Current verification limitation: actual microphone startup aborts inside CoreAudio
-on this Mac’s simulators. Use --preview for visual review; physical-device audio
-acceptance remains required. See Verification/RESULTS.txt for exact test scope.
+The earlier simulator CoreAudio startup failure did not reproduce in the October 3
+recheck: actual microphone start, pause/resume, and background return passed.
+This is not a physical microphone accuracy or TonalEnergy parity measurement.
+See Verification/RESULTS.txt for test scope and historical failures.

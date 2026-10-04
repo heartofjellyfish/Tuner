@@ -4,7 +4,10 @@ struct TunerView: View {
     @StateObject private var model = TunerModel()
     @Environment(\.scenePhase) private var phase
     @State private var settings = false
+    @State private var instruments = false
+    @State private var tunings = false
     @State private var calibration = false
+    @State private var editingTuning: Tuning?
     var body: some View {
         GeometryReader { geo in
             ScrollView {
@@ -19,12 +22,12 @@ struct TunerView: View {
                             Button { model.automatic() } label: {
                                 HStack(spacing: 7) {
                                     if model.lockedIndex != nil { Image(systemName: "lock.fill").font(.system(size: 9)) }
-                                    Text(model.lockedIndex == nil ? "AUTO" : "STRING \(model.notes.count - model.lockedIndex!) · LOCKED").technical(10)
-                                }.frame(minWidth: 100, minHeight: 44)
+                                    Text(model.lockedIndex == nil ? "AUTO" : "\(model.notes.count - model.lockedIndex!)").technical(9)
+                                }.frame(minWidth: 100, minHeight: 44).contentShape(Rectangle())
                             }.buttonStyle(.plain).accessibilityIdentifier("autoString")
                                 .accessibilityLabel(model.lockedIndex == nil ? "Automatic string detection" : "Unlock string, return to automatic")
-                            Headstock(notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, select: model.selectString)
-                                .frame(height: max(158, min(310, geo.size.height - 510)))
+                            Headstock(instrument: model.instrument, notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, select: model.selectString)
+                                .frame(height: max(model.notes.count > 6 ? 270 : 190, min(310, geo.size.height - 480)))
                                 .padding(.horizontal, 8)
                         }
                     }.modifier(Surface())
@@ -45,61 +48,81 @@ struct TunerView: View {
         }
         .sheet(isPresented: $settings) { settingsSheet }
         .sheet(isPresented: $calibration) { calibrationSheet }
-        .alert("Microphone", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
-            if model.permissionDenied {
-                Button("Open Settings") { UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) }
-            } else {
-                Button("Retry") { model.error = nil; model.start() }
-            }
-            Button("Dismiss", role: .cancel) { model.error = nil }
-        } message: { Text(model.error ?? "") }
+        .sheet(isPresented: $instruments) { instrumentPanel }
+        .sheet(isPresented: $tunings) { tuningPanel }
+        .sheet(isPresented: Binding(get: { model.error != nil && !settings && !calibration && !instruments && !tunings }, set: { if !$0 { model.error = nil } })) {
+            CleanPanel(title: "Microphone") {
+                Text(model.error ?? "").font(.system(size: 15)).foregroundStyle(CleanStyle.muted)
+                if model.permissionDenied {
+                    CleanRow(title: "Open Settings", symbol: "mic") { UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) }
+                } else { CleanRow(title: "Retry", symbol: "arrow.clockwise") { model.error = nil; model.start() } }
+                CleanRow(title: "Dismiss") { model.error = nil }
+            }.presentationDetents([.medium])
+        }
     }
     private var header: some View {
         HStack {
             Text("CLEAN TUNER").technical(14, spacing: 3.2)
             Spacer()
             Button { settings = true } label: {
-                Image(systemName: "gearshape").font(.system(size: 23, weight: .regular)).frame(width: 44, height: 44)
+                Image(systemName: "gearshape").font(.system(size: 23, weight: .regular)).frame(width: 44, height: 44).contentShape(Rectangle())
             }.buttonStyle(.plain).accessibilityLabel("Settings").accessibilityIdentifier("settings")
         }.padding(.horizontal, 5)
     }
     private var selectors: some View {
-        HStack {
-            Menu {
-                ForEach(Instrument.allCases) { item in
-                    Button { model.selectInstrument(item) } label: {
-                        if item == model.instrument { Label(item.rawValue, systemImage: "checkmark") }
-                        else { Text(item.rawValue) }
-                    }
-                }
-            } label: { selectorLabel(model.instrument.rawValue) }
+        HStack(spacing: 0) {
+            Button { instruments = true } label: { selectorLabel(model.instrument.rawValue) }
                 .accessibilityIdentifier("instrumentMenu").accessibilityLabel("Instrument, \(model.instrument.rawValue)")
-            Spacer(minLength: 4)
             if let tuning = model.tuning {
                 Rectangle().fill(CleanStyle.silver).frame(width: 1, height: 18)
-                Spacer(minLength: 4)
-                Menu {
-                    ForEach(model.instrument.tunings) { item in
-                        Button { model.selectTuning(item) } label: {
-                            if tuning == item { Label(item.name, systemImage: "checkmark") }
-                            else { Text(item.name) }
-                        }
-                    }
-                } label: { selectorLabel(tuning.name) }
+                Button { tunings = true } label: { selectorLabel(tuning.name) }
                     .accessibilityIdentifier("tuningMenu").accessibilityLabel("Tuning, \(tuning.name)")
-            } else { Text("12 NOTES").technical(9, spacing: 1).foregroundStyle(CleanStyle.muted) }
-        }.frame(height: 52)
+            }
+        }.buttonStyle(.plain).frame(height: 56)
     }
     private func selectorLabel(_ value: String) -> some View {
-        HStack(spacing: 8) { Text(value).font(.system(size: 15, weight: .medium)).lineLimit(1).minimumScaleFactor(0.7); Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold)) }
-            .frame(minHeight: 44).foregroundStyle(CleanStyle.ink)
+        HStack(spacing: 8) {
+            Text(value).font(.system(size: 14, weight: .medium)).lineLimit(1).minimumScaleFactor(0.7)
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.down").font(.system(size: 10, weight: .medium)).foregroundStyle(CleanStyle.muted)
+        }.padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: 52).contentShape(Rectangle())
+    }
+    private var instrumentPanel: some View {
+        CleanPanel(title: "Instrument") {
+            ForEach(Instrument.allCases) { value in
+                CleanRow(title: value.rawValue, selected: model.instrument == value) {
+                    model.selectInstrument(value); instruments = false
+                }.accessibilityIdentifier("instrument-\(value.rawValue)")
+            }
+        }
+    }
+    private var tuningPanel: some View {
+        CleanPanel(title: "Tuning", subtitle: model.instrument.rawValue.uppercased()) {
+            if let current = model.tuning {
+                CleanRow(title: "Custom tuning", symbol: "plus") { editingTuning = Tuning(id: "draft-" + UUID().uuidString, name: "", notes: current.notes) }
+                    .accessibilityIdentifier("newCustom")
+                if current.isCustom {
+                    CleanRow(title: "Edit tuning", symbol: "slider.horizontal.3") { editingTuning = current }
+                        .accessibilityIdentifier("editCustom")
+                }
+            }
+            ForEach(model.availableTunings) { value in
+                CleanRow(title: value.name, detail: value.notes.map(PitchMath.label).joined(separator: "  "), selected: model.tuning?.id == value.id) {
+                    model.selectTuning(value); tunings = false
+                }.accessibilityIdentifier("tuning-\(value.id)")
+            }
+        }
+        .sheet(item: $editingTuning) { value in
+            TuningEditor(instrument: model.instrument, original: value, editing: value.isCustom,
+                         save: model.saveCustom, delete: model.deleteCustom)
+        }
     }
     private var meter: some View {
         VStack(spacing: 0) {
             PitchArc(note: model.displayNote, cents: model.cents, active: model.frequency != nil)
                 .frame(height: 156).padding(.horizontal, 24).padding(.top, 26)
             HStack(alignment: .firstTextBaseline) {
-                Text("LOW").technical(10, spacing: 1.7).foregroundStyle(CleanStyle.muted)
+                Text("−").technical(17, spacing: 0).foregroundStyle(CleanStyle.muted)
                 Spacer(minLength: 0)
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text(model.frequency == nil ? "—" : (abs(model.cents) < 0.5 ? "0" : String(format: "%+.0f", model.cents)))
@@ -107,9 +130,9 @@ struct TunerView: View {
                     Text("ct").font(.system(size: 23))
                 }.lineLimit(1).minimumScaleFactor(0.65)
                 Spacer(minLength: 0)
-                Text("HIGH").technical(10, spacing: 1.7).foregroundStyle(CleanStyle.muted)
+                Text("+").technical(17, spacing: 0).foregroundStyle(CleanStyle.muted)
             }.padding(.horizontal, 18)
-            Text(model.status).technical(11, spacing: 2.1).padding(.top, 4).padding(.bottom, 6)
+            Text(model.frequency == nil ? "Play a note" : abs(model.cents) <= 3 ? "In tune" : " ").font(.system(size: 11)).foregroundStyle(CleanStyle.muted).padding(.top, 4).padding(.bottom, 6)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("pitchDisplay")
@@ -124,77 +147,61 @@ struct TunerView: View {
             }.buttonStyle(.plain).disabled(model.displayNote == nil)
                 .accessibilityIdentifier("holdPitch")
                 .accessibilityLabel(model.lockedPitch == nil ? "Hold current pitch" : "Release held pitch")
-            Text(model.lockedPitch == nil ? "AUTO · TAP NOTE TO HOLD" : "HELD · TAP NOTE TO RELEASE")
-                .technical(9, spacing: 1).foregroundStyle(CleanStyle.muted)
-            Text(model.frequency.map { String(format: "%.2f Hz", $0) } ?? "— Hz")
-                .font(.system(size: 17, design: .monospaced)).foregroundStyle(CleanStyle.muted)
-            HStack(spacing: 5) {
-                ForEach(0..<12) { pc in
-                    Capsule().fill(model.note.map { $0 % 12 == pc } == true ? CleanStyle.orange : CleanStyle.silver)
-                        .frame(width: 4, height: 12)
-                }
-            }.accessibilityHidden(true)
-            Text("ONE NOTE AT A TIME").technical(9, spacing: 1.6).foregroundStyle(CleanStyle.muted)
+            Image(systemName: model.lockedPitch == nil ? "lock.open" : "lock.fill")
+                .font(.system(size: 12)).foregroundStyle(CleanStyle.muted).accessibilityHidden(true)
+
         }.frame(maxWidth: .infinity).padding(.vertical, 32)
     }
     private var footer: some View {
         HStack(spacing: 10) {
             StatusLight(on: model.listening || model.tone || model.demo)
-            Text(model.inputStatus).technical(9, spacing: 1.5).lineLimit(1).minimumScaleFactor(0.7)
+                .accessibilityHidden(false).accessibilityLabel(model.inputStatus).accessibilityIdentifier("inputStatus")
+            if model.demo || model.permissionDenied || (!model.listening && !model.tone) {
+                Text(model.inputStatus).technical(9, spacing: 1).lineLimit(1).minimumScaleFactor(0.7)
+            }
             Spacer(minLength: 4)
             Button { calibration = true } label: {
-                Text("A4  \(Int(model.reference)) Hz").technical(10, spacing: 1.5).frame(minHeight: 44)
+                Text("A4  \(Int(model.reference)) Hz").technical(10, spacing: 1.5).frame(minHeight: 44).contentShape(Rectangle())
             }.buttonStyle(.plain).accessibilityIdentifier("reference")
                 .accessibilityLabel("Concert A, \(Int(model.reference)) hertz")
         }.padding(.horizontal, 4)
     }
     private var settingsSheet: some View {
-        NavigationStack {
-            Form {
-                Section("Audio") {
-                    HStack { Text("Microphone"); Spacer(); Text(model.inputStatus.capitalized).foregroundStyle(.secondary) }
-                    Button(model.listening ? "Pause microphone" : "Resume microphone") {
-                        if model.listening { model.stop() } else { model.start() }
-                    }.foregroundStyle(CleanStyle.ink)
-                    Button(model.tone ? "Stop reference tone" : "Play A4 reference tone") { model.toggleTone() }
-                        .foregroundStyle(CleanStyle.ink).accessibilityIdentifier("referenceTone")
+        CleanPanel(title: "Settings") {
+            if let error = model.error {
+                Text(error).font(.system(size: 13)).foregroundStyle(CleanStyle.muted).frame(maxWidth: .infinity, alignment: .leading)
+                if model.permissionDenied {
+                    CleanRow(title: "Open Settings", symbol: "mic") { UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) }
                 }
-                Section("Tuning") {
-                    Text("Equal temperament · A4 = \(Int(model.reference)) Hz")
-                    Text("The marker moves left when flat and right when sharp. Each note occupies a region; its center is the exact pitch. In tune means within ±3 cents.").font(.subheadline).foregroundStyle(.secondary)
-                    Text("Tap a string to lock its target. Tap it again, or tap AUTO, to return to automatic detection. Use a lock when replacing a string or tuning far from its target.").font(.subheadline).foregroundStyle(.secondary)
-                }
-                Section("Clean / 03") {
-                    Text("Play one sustained note in a quiet space. Let the attack settle before adjusting. Working range: 40–1500 Hz.").font(.subheadline).foregroundStyle(.secondary)
-                    Text("Audio stays on your device. No recordings, accounts, or analytics.").font(.subheadline).foregroundStyle(.secondary)
-                }
-            }.navigationTitle("Settings").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { settings = false } } }
-        }.tint(CleanStyle.ink)
+            }
+            CleanRow(title: model.listening ? "Pause microphone" : "Resume microphone", detail: model.inputStatus.capitalized, symbol: "mic") {
+                if model.listening { model.stop() } else { model.start() }
+            }.accessibilityIdentifier("microphoneToggle")
+            CleanRow(title: model.tone ? "Stop reference tone" : "Play A4 reference tone", symbol: model.tone ? "stop" : "speaker.wave.2") { model.toggleTone() }
+                .accessibilityIdentifier("referenceTone")
+            Text("Equal temperament · ±3 cents in tune").font(.system(size: 12)).foregroundStyle(CleanStyle.muted).padding(.top, 16)
+            Text("Tap a string to lock it. Tap AUTO to release. In Chromatic, tap the note to hold it.")
+                .font(.system(size: 13)).foregroundStyle(CleanStyle.muted).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
+            Text("Audio stays on your device.").font(.system(size: 12)).foregroundStyle(CleanStyle.muted)
+        }.transaction { $0.animation = nil; $0.disablesAnimations = true }.presentationDetents([.medium, .large])
     }
     private var calibrationSheet: some View {
-        NavigationStack {
-            VStack(spacing: 28) {
-                Text("CONCERT A").technical(11).foregroundStyle(CleanStyle.muted)
-                Text("\(Int(model.reference)) Hz").font(.system(size: 52, weight: .light)).monospacedDigit()
-                HStack(spacing: 20) {
-                    Button { model.calibrate(-1) } label: { Image(systemName: "minus").frame(width: 44, height: 44) }.accessibilityLabel("Lower reference")
-                    Slider(value: $model.reference, in: 420...460, step: 1).accessibilityLabel("Concert A frequency")
-                    Button { model.calibrate(1) } label: { Image(systemName: "plus").frame(width: 44, height: 44) }.accessibilityLabel("Raise reference")
+        CleanPanel(title: "Concert A") {
+            Text("\(Int(model.reference))").font(.system(size: 64, weight: .light)).monospacedDigit().padding(.top, 12)
+            Text("Hz").technical(12).foregroundStyle(CleanStyle.muted)
+            HStack(spacing: 16) {
+                Button { model.calibrate(-1) } label: { Image(systemName: "minus").frame(width: 44, height: 44) }.accessibilityLabel("Lower reference")
+                Slider(value: $model.reference, in: 420...460, step: 1).tint(CleanStyle.orange).accessibilityLabel("Concert A frequency")
+                Button { model.calibrate(1) } label: { Image(systemName: "plus").frame(width: 44, height: 44) }.accessibilityLabel("Raise reference")
+            }
+            HStack(spacing: 10) {
+                ForEach([432,440,442], id: \.self) { hz in
+                    Button { model.reference = Double(hz) } label: {
+                        Text("\(hz)").font(.system(size: 15, design: .monospaced)).frame(maxWidth: .infinity, minHeight: 48)
+                            .background(model.reference == Double(hz) ? CleanStyle.orange.opacity(0.16) : CleanStyle.silver.opacity(0.3), in: RoundedRectangle(cornerRadius: 10))
+                    }.accessibilityIdentifier("reference-\(hz)")
                 }
-                HStack(spacing: 12) {
-                    ForEach([432,440,442], id: \.self) { hz in
-                        Button { model.reference = Double(hz) } label: {
-                            Text("\(hz)").frame(maxWidth: .infinity).padding(.vertical, 15)
-                                .background(model.reference == Double(hz) ? CleanStyle.orange.opacity(0.2) : CleanStyle.silver.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
-                        }.accessibilityIdentifier("reference-\(hz)")
-                    }
-                }
-                Text("420–460 Hz · Applies to every note").font(.footnote).foregroundStyle(CleanStyle.muted)
-                Spacer()
-            }.padding(28).background(CleanStyle.face)
-                .navigationTitle("Reference").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { calibration = false } } }
-        }.presentationDetents([.medium, .large]).tint(CleanStyle.ink)
+            }
+        }.presentationDetents([.medium, .large])
     }
 }

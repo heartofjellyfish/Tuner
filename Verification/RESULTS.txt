@@ -1,3 +1,41 @@
+LATEST UPDATE — 2026-10-03
+
+Implemented 8 instrument modes plus Chromatic; 52 built-in tuning presets.
+Added custom tuning creation, persistence, editing, deletion and 4–8 string/course
+counts, with per-target pitch-class and octave controls (A0–F6).
+Removed native dropdown menus/forms in favor of consistent white/orange panels
+with full-row hit areas. Simplified the main display, retained accessibility
+status labels, and removed redundant frequency/instruction text from the main UI.
+
+Expanded low-frequency analysis to 25 Hz for bass low B and Drop A.
+2,070 synthesized signals: zero misses/failures. Worst error in this corpus:
+0.49956 cents (noise), 0.44097 cents (decay), 0.02618 cents (clean harmonic cases).
+Not a hardware accuracy or competitor parity measurement.
+
+Simulator iPhone 16e, iOS 26.3:
+- Original six-test recheck: all six passed, including actual microphone lifecycle.
+  The old CoreAudio startup timeout did not reproduce in this session.
+- Expanded final full run: seven of eight passed; microphone resume encountered
+  an intermittent animated control/hit-test failure, not an audio RPC abort.
+- After assigning a stable microphone control ID, disabling control replacement
+  animation, and waiting for an actionable button, the targeted lifecycle test
+  passed: LISTENING, pause, resume, background, return to LISTENING.
+- All eight distinct workflows now have passing results: instrument/preset
+  switching and locks; all new instruments and long-list scrolling; custom
+  create/relaunch/edit/string count/delete; chromatic hold/calibration; silence
+  and permission UI; ukulele; PCM detection/clear; actual microphone lifecycle.
+- Custom sheet create/edit mode initially used stale state. Fixed by deriving
+  edit mode from the selected tuning identity. Persistence/edit/delete retested.
+
+New screenshots: guitar.png, ukulele.png, chromatic.png, eight-strings.png,
+tuning-panel.png, custom-editor.png, settings.png. PREVIEW denotes test data.
+Small-screen/iPad screenshots below are from the earlier implementation, not a
+new layout verification of these expanded panels.
+
+Signed Release build: PASS. Updated app installed on the paired iPhone 14 Pro.
+
+HISTORICAL RECORD (superseded where noted above)
+
 Clean Tuner — implementation verification, 2026-10-02
 
 IMPLEMENTED

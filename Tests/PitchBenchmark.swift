@@ -11,7 +11,7 @@ import Foundation
         for kind in ["sine", "harmonic", "weak-fundamental", "decay", "noise-30dB"] {
             var errors: [Double] = []; var misses = 0
             for rate in [44100.0, 48000.0] {
-                for midi in 28...89 {
+                for midi in 21...89 {
                     for cents in [-30.0, 0.0, 30.0] {
                         let hz = PitchMath.frequency(midi) * pow(2, cents / 1200)
                         var rng: UInt64 = UInt64(midi + 1)
@@ -41,7 +41,7 @@ import Foundation
             check(misses == 0, "\(kind) missed \(misses)")
             errors.sort()
             if !errors.isEmpty {
-                print(String(format: "%@: 372 cases, %d misses; median %.5f ct, p95 %.5f ct, max %.5f ct", kind, misses, errors[errors.count/2], errors[Int(Double(errors.count-1)*0.95)], errors.last!))
+                print(String(format: "%@: 414 cases, %d misses; median %.5f ct, p95 %.5f ct, max %.5f ct", kind, misses, errors[errors.count/2], errors[Int(Double(errors.count-1)*0.95)], errors.last!))
             }
         }
         check(detector.detect([Float](repeating: 0, count: 8192), rate: 48000) == nil, "silence")
@@ -56,7 +56,7 @@ import Foundation
         }
         check(detector.detect(noise, rate: 48000) == nil, "broadband noise rejection")
         for reference in [420.0, 432, 440, 442, 460] {
-            for note in 28...89 {
+            for note in 21...89 {
                 check(abs(PitchMath.midi(PitchMath.frequency(note, reference: reference), reference: reference) - Double(note)) < 1e-9, "calibration round trip")
             }
         }
@@ -71,14 +71,14 @@ import Foundation
         check(PitchMath.name(55) == "G" && PitchMath.label(60) == "C4", "note spelling")
         for instrument in Instrument.allCases {
             for tuning in instrument.tunings {
-                check(tuning.notes.count == (instrument == .guitar ? 6 : 4), "tuning string count")
+                check(tuning.isValid, "valid preset: \(instrument.rawValue) \(tuning.name)")
                 for note in tuning.notes {
                     check(PitchMath.target(frequency: PitchMath.frequency(note), reference: 440, notes: tuning.notes, locked: nil, previous: nil) == note, "preset target \(tuning.name)")
                 }
             }
         }
         print(String(format: "%d signal cases in %.2f seconds. Failures: %d", total, Date().timeIntervalSince(started), failures))
-        print("Scope: deterministic synthetic monophonic signals, 41–1421 Hz, 8192 samples. Not a microphone or competitor accuracy measurement.")
+        print("Scope: deterministic synthetic monophonic signals, 27–1421 Hz, 8192 samples. Not a microphone or competitor accuracy measurement.")
         if failures > 0 { exit(1) }
     }
 }

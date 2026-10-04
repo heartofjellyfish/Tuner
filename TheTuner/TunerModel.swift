@@ -104,6 +104,7 @@ private final class AudioDriver {
         didSet { UserDefaults.standard.set(reference, forKey: "reference"); recalculate(); if tone { playTone() } }
     }
     @Published private(set) var instrument: Instrument = .guitar
+    @Published private(set) var customTunings: [String: [Tuning]] = [:]
     @Published private(set) var tuningID = "standard"
     @Published private(set) var lockedIndex: Int?
     @Published private(set) var selectedIndex: Int?
@@ -129,6 +130,13 @@ private final class AudioDriver {
     private var fixtureTask: Task<Void, Never>?
 
     init() {
+        if let data = UserDefaults.standard.data(forKey: "custom-tunings-v1"),
+           let decoded = try? JSONDecoder().decode([String: [Tuning]].self, from: data) {
+            customTunings = decoded.mapValues { values in
+                var ids = Set<String>()
+                return values.filter { $0.isCustom && $0.isValid && ids.insert($0.id).inserted }
+            }
+        }
         let saved = UserDefaults.standard.double(forKey: "reference")
         reference = saved.isFinite && (420...460).contains(saved) ? saved : 440
         instrument = Instrument(rawValue: UserDefaults.standard.string(forKey: "instrument") ?? "") ?? .guitar
@@ -142,6 +150,7 @@ private final class AudioDriver {
         let args = ProcessInfo.processInfo.arguments
         if args.contains("--reset") {
             instrument = .guitar; tuningID = "standard"; reference = 440
+            UserDefaults.standard.set(instrument.rawValue, forKey: "instrument")
             for value in Instrument.allCases { UserDefaults.standard.removeObject(forKey: "tuning-\(value.rawValue)") }
         }
         if args.contains("--preview") {
@@ -158,7 +167,28 @@ private final class AudioDriver {
         #endif
     }
     deinit { observers.forEach { NotificationCenter.default.removeObserver($0) } }
-    var tuning: Tuning? { instrument.tunings.first(where: { $0.id == tuningID }) ?? instrument.tunings.first }
+    var availableTunings: [Tuning] { instrument.tunings + (customTunings[instrument.rawValue] ?? []) }
+    var tuning: Tuning? { availableTunings.first(where: { $0.id == tuningID }) ?? availableTunings.first }
+    func saveCustom(id: String?, name: String, notes: [Int]) {
+        guard instrument != .chromatic else { return }
+        let item = Tuning(id: id ?? "custom-" + UUID().uuidString,
+                          name: name.trimmingCharacters(in: .whitespacesAndNewlines), notes: notes)
+        guard item.isValid, item.isCustom else { return }
+        var list = customTunings[instrument.rawValue] ?? []
+        if let index = list.firstIndex(where: { $0.id == item.id }) { list[index] = item }
+        else { list.append(item) }
+        customTunings[instrument.rawValue] = list
+        persistCustom()
+        selectTuning(item)
+    }
+    func deleteCustom(_ id: String) {
+        customTunings[instrument.rawValue]?.removeAll { $0.id == id }
+        persistCustom()
+        if tuningID == id, let first = instrument.tunings.first { selectTuning(first) }
+    }
+    private func persistCustom() {
+        if let data = try? JSONEncoder().encode(customTunings) { UserDefaults.standard.set(data, forKey: "custom-tunings-v1") }
+    }
     var notes: [Int] { tuning?.notes ?? [] }
     var displayNote: Int? { lockedPitch ?? lockedIndex.flatMap { notes.indices.contains($0) ? notes[$0] : nil } ?? note }
     var status: String {
@@ -184,7 +214,7 @@ private final class AudioDriver {
         recalculate()
     }
     func selectTuning(_ value: Tuning) {
-        guard instrument.tunings.contains(value) else { return }
+        guard availableTunings.contains(value) else { return }
         tuningID = value.id; lockedIndex = nil; selectedIndex = nil; note = nil
         UserDefaults.standard.set(value.id, forKey: "tuning-\(instrument.rawValue)")
         recalculate()

@@ -26,7 +26,7 @@ struct PitchDetector {
         guard rms > 0.003 else { return nil }
         let sampleRate = rate / Double(stride)
         let minLag = max(2, Int(sampleRate / 1500))
-        let maxLag = min(count / 2 - 1, Int(sampleRate / 40))
+        let maxLag = min(count / 2 - 1, Int(sampleRate / 25))
         guard maxLag > minLag else { return nil }
         let window = count - maxLag
         var difference = [Double](repeating: 1, count: maxLag + 1)
@@ -71,7 +71,7 @@ struct PitchDetector {
         var candidates: [(period: Double, loss: Double)] = []
         for factor in [1.0 / 3, 0.5, 1.0, 2.0, 3.0] {
             let guess = coarsePeriod * factor
-            guard guess >= rate / 1500, guess <= rate / 40 else { continue }
+            guard guess >= rate / 1500, guess <= rate / 25 else { continue }
             let lo = max(2, Int(guess) - stride * 2)
             let hi = min(samples.count / 2 - 2, Int(guess) + stride * 2)
             let n = samples.count - hi - 1
@@ -109,37 +109,75 @@ struct PitchDetector {
         let adjustment = abs(d) > 1e-12 ? 0.5 * (raw[best - 1] - raw[best + 1]) / d : 0
         let refined = Double(lower - 1 + best) + max(-1, min(1, adjustment))
         let frequency = rate * Double(multiples) / refined
-        guard frequency >= 40, frequency <= 1500 else { return nil }
+        guard frequency >= 25, frequency <= 1500 else { return nil }
         return PitchReading(frequency: frequency, confidence: 1 - center, rms: rms)
     }
 }
 
-enum Instrument: String, CaseIterable, Identifiable {
+enum Instrument: String, CaseIterable, Identifiable, Codable {
     case chromatic = "Chromatic", guitar = "Guitar", ukulele = "Ukulele"
+    case bass = "Bass", violin = "Violin", viola = "Viola", cello = "Cello"
+    case banjo = "Banjo", mandolin = "Mandolin"
     var id: String { rawValue }
+    var bowed: Bool { [.violin, .viola, .cello].contains(self) }
     var tunings: [Tuning] {
+        func t(_ id: String, _ name: String, _ notes: [Int]) -> Tuning { Tuning(id: id, name: name, notes: notes) }
         switch self {
         case .chromatic: return []
         case .guitar: return [
-            Tuning(id: "standard", name: "Standard", notes: [40,45,50,55,59,64]),
-            Tuning(id: "drop-d", name: "Drop D", notes: [38,45,50,55,59,64]),
-            Tuning(id: "half-down", name: "Half step down", notes: [39,44,49,54,58,63]),
-            Tuning(id: "dadgad", name: "DADGAD", notes: [38,45,50,55,57,62]),
-            Tuning(id: "open-g", name: "Open G", notes: [38,43,50,55,59,62]),
-            Tuning(id: "open-d", name: "Open D", notes: [38,45,50,54,57,62])]
+            t("standard", "Standard", [40,45,50,55,59,64]),
+            t("drop-d", "Drop D", [38,45,50,55,59,64]),
+            t("half-down", "Half step down", [39,44,49,54,58,63]),
+            t("dadgad", "DADGAD", [38,45,50,55,57,62]),
+            t("open-g", "Open G", [38,43,50,55,59,62]),
+            t("open-d", "Open D", [38,45,50,54,57,62]),
+            t("whole-down", "D standard", [38,43,48,53,57,62]),
+            t("drop-c", "Drop C", [36,43,48,53,57,62]),
+            t("open-e", "Open E", [40,47,52,56,59,64]),
+            t("open-c", "Open C", [36,43,48,55,60,64]),
+            t("double-drop-d", "Double Drop D", [38,45,50,55,59,62]),
+            t("seven", "7-string", [35,40,45,50,55,59,64]),
+            t("eight", "8-string", [30,35,40,45,50,55,59,64])]
         case .ukulele: return [
-            Tuning(id: "high-g", name: "High G", notes: [67,60,64,69]),
-            Tuning(id: "low-g", name: "Low G", notes: [55,60,64,69]),
-            Tuning(id: "baritone", name: "Baritone", notes: [50,55,59,64]),
-            Tuning(id: "d-tuning", name: "D tuning", notes: [69,62,66,71])]
+            t("high-g", "High G", [67,60,64,69]), t("low-g", "Low G", [55,60,64,69]),
+            t("baritone", "Baritone", [50,55,59,64]), t("d-tuning", "D tuning", [69,62,66,71]),
+            t("low-a", "Low A · D tuning", [57,62,66,71]),
+            t("slack-key", "Slack key", [67,60,64,67]),
+            t("half-down", "Half step down", [66,59,63,68])]
+        case .bass: return [
+            t("standard", "4-string", [28,33,38,43]), t("five", "5-string", [23,28,33,38,43]),
+            t("six", "6-string", [23,28,33,38,43,48]), t("drop-d", "Drop D", [26,33,38,43]),
+            t("half-down", "Half step down", [27,32,37,42]),
+            t("d-standard", "D standard", [26,31,36,41]), t("drop-c", "Drop C", [24,31,36,41]),
+            t("drop-a", "5-string Drop A", [21,28,33,38,43])]
+        case .violin: return [t("standard", "Standard", [55,62,69,76]),
+            t("cross-a", "Cross A · AEAE", [57,64,69,76]), t("cross-g", "Cross G · GDGD", [55,62,67,74]),
+            t("calico", "Calico · AEAC♯", [57,64,69,73]), t("five", "5-string", [48,55,62,69,76])]
+        case .viola: return [t("standard", "Standard", [48,55,62,69]),
+            t("half-down", "Half step down", [47,54,61,68]), t("whole-down", "Whole step down", [46,53,60,67])]
+        case .cello: return [t("standard", "Standard", [36,43,50,57]),
+            t("bach", "Bach Suite 5 · CGDG", [36,43,50,55]),
+            t("half-down", "Half step down", [35,42,49,56]), t("whole-down", "Whole step down", [34,41,48,55])]
+        case .banjo: return [t("open-g", "Open G", [67,50,55,59,62]),
+            t("double-c", "Double C", [67,48,55,60,62]), t("sawmill", "Sawmill", [67,50,55,60,62]),
+            t("open-d", "Open D", [66,50,54,57,62]), t("standard-c", "Standard C", [67,48,55,59,62]),
+            t("tenor", "Tenor · CGDA", [48,55,62,69]), t("irish", "Irish tenor · GDAE", [43,50,57,64])]
+        case .mandolin: return [t("standard", "Standard · GDAE", [55,62,69,76]),
+            t("cross-g", "Cross G · GDGD", [55,62,67,74]), t("cross-a", "Cross A · AEAE", [57,64,69,76]),
+            t("octave", "Octave mandolin", [43,50,57,64]), t("mandola", "Mandola · CGDA", [48,55,62,69])]
         }
     }
 }
-struct Tuning: Identifiable, Equatable {
+struct Tuning: Identifiable, Equatable, Codable {
     let id: String
     let name: String
-    /// Physical string order, not pitch order (high-G ukulele is reentrant).
+    /// Physical order, last numbered string to first; mandolin uses paired courses.
     let notes: [Int]
+    var isCustom: Bool { id.hasPrefix("custom-") }
+    var isValid: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && name.count <= 32 &&
+        (4...8).contains(notes.count) && notes.allSatisfy { (21...89).contains($0) }
+    }
 }
 
 enum PitchMath {

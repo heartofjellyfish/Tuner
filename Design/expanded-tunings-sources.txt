@@ -1,0 +1,25 @@
+Expanded tuning catalogue — 2026-10-03
+
+52 presets across Guitar (13), Ukulele (7), Bass (8), Violin (5), Viola (3),
+Cello (4), Banjo (7), Mandolin (5). Chromatic remains instrument-independent.
+Targets store scientific pitch octaves in physical string/course order.
+Mandolin targets represent four paired courses; tune each member separately.
+Half/whole-step-down presets are explicitly labelled transpositions of standard.
+Custom tuning supports 4–8 strings/courses, A0–F6, local persistence.
+
+Manufacturer references checked:
+Fender: bass standard 4-string EADG and 5-string BEADG
+https://www.fmicassets.com/Damroot/Original/10001/OM_leg_bass_2011_Owner%27s_Manual_For_Fender_Basses_English.pdf
+Fender: ukulele standard and D tuning
+https://www.fender.com/articles/setup/how-to-tune-a-ukulele
+Fender: guitar alternate tunings
+https://www.fender.com/articles/setup/tune-like-a-rock-star
+Yamaha: violin and viola string order
+https://usa.yamaha.com/files/download/other_assets/0/313360/02_violin_E_0702.pdf
+Deering: banjo Open G, Double C, Sawmill and tenor tunings
+https://www.deeringbanjos.com/en-ca/pages/how-to-tune-a-banjo
+Mandolin paired-course tuning, manufacturer user guide
+https://assets.kogan.com/files/usermanuals/RYAMANDOSBA_UG.pdf
+
+Alternate tunings are targets, not advice to use any string set at any tension.
+The editor reminds users to choose pitches suited to their instrument and strings.

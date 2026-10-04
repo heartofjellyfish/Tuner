@@ -87,17 +87,23 @@ struct PitchArc: View {
 }
 
 struct Headstock: View {
+    let instrument: Instrument
     let notes: [Int]
     let selected: Int?
     let locked: Int?
     let select: (Int) -> Void
-    private var guitar: Bool { notes.count == 6 }
+    private var guitar: Bool { instrument == .guitar || instrument == .bass }
+    private var half: Int { (notes.count + 1) / 2 }
     private func peg(_ index: Int, size: CGSize) -> CGPoint {
-        let half = notes.count / 2
+        let half = self.half
         let left = index < half
         let row = left ? half - 1 - index : index - half
-        let ys: [CGFloat] = guitar ? [0.20, 0.46, 0.72] : [0.28, 0.64]
-        return CGPoint(x: size.width * (left ? 0.32 : 0.68), y: size.height * ys[row])
+        let rows = left ? half : notes.count - half
+        let y = rows == 1 ? 0.46 : 0.20 + CGFloat(row) * 0.52 / CGFloat(rows - 1)
+        if instrument == .banjo && notes.count == 5 && index == 0 {
+            return CGPoint(x: size.width * 0.32, y: size.height * 0.81)
+        }
+        return CGPoint(x: size.width * (left ? 0.32 : 0.68), y: size.height * y)
     }
     var body: some View {
         GeometryReader { geo in
@@ -121,6 +127,12 @@ struct Headstock: View {
                     else { shape.addQuadCurve(to: p(0.32, 0.02), control: p(0.26, 0.02)) }
                     shape.closeSubpath()
                     context.fill(shape, with: .linearGradient(Gradient(colors: [Color(hex: 0xE3E5E2), Color(hex: 0xD5D9D5)]), startPoint: .zero, endPoint: p(1,1)))
+                    if instrument.bowed {
+                        let scroll = Path(ellipseIn: CGRect(x: size.width * 0.43, y: 0, width: size.width * 0.14, height: size.height * 0.14))
+                        context.fill(scroll, with: .color(CleanStyle.silver))
+                        context.stroke(scroll, with: .color(CleanStyle.muted), lineWidth: 1.3)
+                        context.stroke(Path(ellipseIn: CGRect(x: size.width * 0.47, y: size.height * 0.04, width: size.width * 0.06, height: size.height * 0.06)), with: .color(CleanStyle.muted), lineWidth: 1)
+                    }
                     context.stroke(shape, with: .color(CleanStyle.ink.opacity(0.8)), lineWidth: 1.1)
                     context.fill(Path(CGRect(x: size.width * 0.35, y: size.height * 0.9, width: size.width * 0.30, height: size.height * 0.10)), with: .color(Color(hex: 0x505652)))
                     let nut = CGRect(x: size.width * 0.35, y: size.height * 0.86, width: size.width * 0.30, height: 7)
@@ -128,7 +140,7 @@ struct Headstock: View {
                     context.stroke(Path(nut), with: .color(CleanStyle.muted), lineWidth: 0.7)
                     for i in notes.indices {
                         let post = peg(i, size: size)
-                        let isLeft = i < notes.count / 2
+                        let isLeft = i < half
                         let outerX = size.width * (isLeft ? 0.20 : 0.80)
                         var stem = Path(); stem.move(to: post); stem.addLine(to: CGPoint(x: outerX, y: post.y))
                         context.stroke(stem, with: .color(CleanStyle.muted), lineWidth: 1)
@@ -144,6 +156,9 @@ struct Headstock: View {
                             }
                         }
                         context.stroke(string, with: .color(selected == i ? CleanStyle.orange : .white.opacity(0.85)), lineWidth: selected == i ? 1.6 : 1.2)
+                        if instrument == .mandolin {
+                            context.stroke(string.offsetBy(dx: 3, dy: 0), with: .color(selected == i ? CleanStyle.orange : .white.opacity(0.85)), lineWidth: 1)
+                        }
                         let circle = Path(ellipseIn: CGRect(x: post.x - 5.5, y: post.y - 5.5, width: 11, height: 11))
                         context.fill(circle, with: .color(CleanStyle.face))
                         context.stroke(circle, with: .color(CleanStyle.ink), lineWidth: 0.9)
@@ -151,7 +166,7 @@ struct Headstock: View {
                     }
                 }.accessibilityHidden(true)
                 ForEach(notes.indices, id: \.self) { i in
-                    let isLeft = i < notes.count / 2
+                    let isLeft = i < half
                     let post = peg(i, size: size)
                     Button { select(i) } label: {
                         HStack(spacing: 5) {
@@ -166,7 +181,7 @@ struct Headstock: View {
                     }.buttonStyle(.plain)
                         .position(x: size.width * (isLeft ? 0.125 : 0.875), y: post.y)
                         .accessibilityIdentifier("string-\(notes.count - i)")
-                        .accessibilityLabel("String \(notes.count - i), \(PitchMath.label(notes[i]))")
+                        .accessibilityLabel("\(instrument == .mandolin ? "Course" : "String") \(notes.count - i), \(PitchMath.label(notes[i]))")
                         .accessibilityValue(locked == i ? "Locked" : selected == i ? "Detected" : "Automatic")
                         .accessibilityAddTraits(selected == i ? .isSelected : [])
                 }

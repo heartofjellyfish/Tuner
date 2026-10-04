@@ -62,9 +62,9 @@ final class TunerUITests: XCTestCase {
         screenshot("silence")
         app.terminate()
         launch(["--denied"])
-        XCTAssertTrue(app.alerts["Microphone"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.alerts.buttons["Open Settings"].exists)
-        app.alerts.buttons["Dismiss"].tap()
+        XCTAssertTrue(app.staticTexts["Microphone"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Open Settings"].exists)
+        app.buttons["Dismiss"].tap()
         XCTAssertTrue(app.staticTexts["PREVIEW"].exists)
         screenshot("permission-dismissed")
     }
@@ -88,17 +88,86 @@ final class TunerUITests: XCTestCase {
     func testMicrophoneLifecycle() {
         app.launchArguments = ["--reset"]
         app.launch()
-        XCTAssertTrue(app.staticTexts["LISTENING"].waitForExistence(timeout: 10))
+        expectation(for: NSPredicate(format: "label == %@", "LISTENING"), evaluatedWith: app.descendants(matching: .any)["inputStatus"])
+        waitForExpectations(timeout: 10)
         app.buttons["settings"].tap()
-        app.buttons["Pause microphone"].tap()
-        XCTAssertTrue(app.buttons["Resume microphone"].waitForExistence(timeout: 3))
-        app.buttons["Resume microphone"].tap()
-        XCTAssertTrue(app.buttons["Pause microphone"].waitForExistence(timeout: 3))
+        let control = app.buttons["microphoneToggle"]
+        expectation(for: NSPredicate(format: "label == %@ AND hittable == true", "Pause microphone"), evaluatedWith: control)
+        waitForExpectations(timeout: 5)
+        control.tap()
+        expectation(for: NSPredicate(format: "label == %@ AND hittable == true", "Resume microphone"), evaluatedWith: control)
+        waitForExpectations(timeout: 5)
+        control.tap()
+        expectation(for: NSPredicate(format: "label == %@", "Pause microphone"), evaluatedWith: control)
+        waitForExpectations(timeout: 10)
         app.buttons["Done"].tap()
         XCUIDevice.shared.press(.home)
         app.activate()
-        XCTAssertTrue(app.staticTexts["LISTENING"].waitForExistence(timeout: 5))
+        expectation(for: NSPredicate(format: "label == %@", "LISTENING"), evaluatedWith: app.descendants(matching: .any)["inputStatus"])
+        waitForExpectations(timeout: 5)
         screenshot("microphone-running")
+    }
+
+
+    private func tapVisible(_ element: XCUIElement) {
+        for _ in 0..<8 {
+            if element.exists && element.isHittable { element.tap(); return }
+            app.swipeUp()
+        }
+        XCTFail("Could not reach \(element)")
+    }
+    func testAllInstrumentsAndLongPresetList() {
+        launch()
+        for name in ["Bass", "Violin", "Viola", "Cello", "Banjo", "Mandolin", "Guitar"] {
+            app.buttons["instrumentMenu"].tap()
+            tapVisible(app.buttons["instrument-" + name])
+            XCTAssertTrue(app.buttons["instrumentMenu"].label.contains(name))
+            XCTAssertTrue(app.buttons["string-1"].exists)
+        }
+        app.buttons["tuningMenu"].tap()
+        tapVisible(app.buttons["tuning-eight"])
+        XCTAssertTrue(app.buttons["string-8"].exists)
+        screenshot("guitar-eight-strings")
+        app.buttons["string-8"].tap()
+        XCTAssertEqual(app.buttons["string-8"].value as? String, "Locked")
+    }
+    func testCustomCreatePersistEditDelete() {
+        launch()
+        app.buttons["tuningMenu"].tap()
+        screenshot("tuning-panel")
+        app.buttons["newCustom"].tap()
+        XCTAssertTrue(app.textFields["tuningName"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["saveTuning"].isEnabled)
+        app.textFields["tuningName"].tap()
+        app.textFields["tuningName"].typeText("My tuning\n")
+        app.buttons["edit-string-6"].tap()
+        app.buttons["pitch-class-2"].tap()
+        screenshot("custom-note-editor")
+        app.swipeUp()
+        tapVisible(app.buttons["saveTuning"])
+        app.buttons["close-Tuning"].tap()
+        XCTAssertTrue(app.buttons["tuningMenu"].label.contains("My tuning"))
+        XCTAssertTrue(app.buttons["string-6"].label.contains("D2"))
+        app.terminate()
+        app.launchArguments = ["--preview"]
+        app.launch()
+        XCTAssertTrue(app.buttons["tuningMenu"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["tuningMenu"].label.contains("My tuning"))
+        app.buttons["tuningMenu"].tap()
+        app.buttons["editCustom"].tap()
+        XCTAssertEqual(app.textFields["tuningName"].value as? String, "My tuning")
+        app.buttons["Add string"].tap()
+        screenshot("custom-edit-seven")
+        tapVisible(app.buttons["saveTuning"])
+        app.buttons["close-Tuning"].tap()
+        XCTAssertTrue(app.buttons["string-7"].exists)
+        app.buttons["tuningMenu"].tap()
+        app.buttons["editCustom"].tap()
+        tapVisible(app.buttons["deleteTuning"])
+        tapVisible(app.buttons["confirmDelete"])
+        app.buttons["close-Tuning"].tap()
+        XCTAssertTrue(app.buttons["tuningMenu"].label.contains("Standard"))
+        XCTAssertFalse(app.buttons["string-7"].exists)
     }
 
 }
