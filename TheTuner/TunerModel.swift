@@ -8,7 +8,7 @@ private final class AnalysisPipeline {
     private var expectedFrame: AVAudioFramePosition?
     private var tailFrequency: Double?
     private var tailFrame: AVAudioFramePosition?
-    func submit(_ buffer: AVAudioPCMBuffer, at time: AVAudioTime, completion: @escaping (PitchReading?, Double) -> Void) {
+    func submit(_ buffer: AVAudioPCMBuffer, at time: AVAudioTime, completion: @escaping (PitchReading?, Double, [Double]) -> Void) {
         guard let channel = buffer.floatChannelData?[0], gate.wait(timeout: .now()) == .success else { return }
         let samples = Array(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
         let rate = buffer.format.sampleRate, frame = time.sampleTime
@@ -31,7 +31,12 @@ private final class AnalysisPipeline {
                 else { reading = nil }
             }
             if let reading { tailFrequency = reading.frequency; tailFrame = frame }
-            completion(reading, rms)
+            // Short real PCM slices retain texture that whole-buffer RMS averages away.
+            let envelope = (0..<9).map { index -> Double in
+                let start = samples.count * index / 9, end = samples.count * (index + 1) / 9
+                return sqrt(samples[start..<end].reduce(0.0) { $0 + Double($1 * $1) } / Double(max(1, end - start)))
+            }
+            completion(reading, rms, envelope)
         }
     }
 }
@@ -46,7 +51,7 @@ private final class AudioDriver {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
     func stop() { queue.async { self.tearDown() } }
-    func listen(receive: @escaping (PitchReading?, Double) -> Void, completion: @escaping (String?) -> Void) {
+    func listen(receive: @escaping (PitchReading?, Double, [Double]) -> Void, completion: @escaping (String?) -> Void) {
         queue.async {
             self.tearDown()
             do {
@@ -135,6 +140,7 @@ private final class AudioDriver {
     private var feedback = TuningFeedback()
     private var visualTime: Double = 0
     @Published private(set) var level = 0.0
+    @Published private(set) var inputEnvelope = Array(repeating: 0.0, count: 9)
     @Published var error: String?
     @Published var permissionDenied = false
     private let audio = AudioDriver()
@@ -293,12 +299,12 @@ private final class AudioDriver {
                     let gain: Double = frame < 160 ? 1 : frame < 280 ? 0.006 : frame < 320 ? 0 : frame < 390 ? 1 : 0
                     Self.fillFixture(buffer, frame: frame, frequency: value, gain: gain)
                 } else {
-                    Self.fillFixture(buffer, frame: frame, frequency: hz, gain: frame < 140 ? (weakInput ? 0.0008 : 1) : 0)
+                    Self.fillFixture(buffer, frame: frame, frequency: hz, gain: frame < 140 ? (weakInput ? 0.00008 : 1) : 0)
                 }
-                pipeline.submit(buffer, at: AVAudioTime(sampleTime: AVAudioFramePosition(frame * count), atRate: rate)) { [weak self] reading, rms in
+                pipeline.submit(buffer, at: AVAudioTime(sampleTime: AVAudioFramePosition(frame * count), atRate: rate)) { [weak self] reading, rms, envelope in
                     Task { @MainActor [weak self] in
                         guard let self, self.generation == token else { return }
-                        self.receive(reading, rms: rms)
+                        self.receive(reading, rms: rms, envelope: envelope)
                     }
                 }
                 try? await Task.sleep(for: .milliseconds(43))
@@ -343,10 +349,10 @@ private final class AudioDriver {
     private func startListening() {
         requesting = true
         let token = generation
-        audio.listen(receive: { [weak self] reading, rms in
+        audio.listen(receive: { [weak self] reading, rms, envelope in
             Task { @MainActor [weak self] in
                 guard let self, self.generation == token, self.listening else { return }
-                self.receive(reading, rms: rms)
+                self.receive(reading, rms: rms, envelope: envelope)
             }
         }, completion: { [weak self] error in
             Task { @MainActor [weak self] in
@@ -358,11 +364,19 @@ private final class AudioDriver {
             }
         })
     }
-    private func receive(_ reading: PitchReading?, rms: Double) {
+    private func receive(_ reading: PitchReading?, rms: Double, envelope: [Double]) {
         // Show quiet room input independently of the stricter pitch-acquisition gate.
-        let target = rms.isFinite && rms > 0 ? min(1, max(0, (20 * log10(rms) + 90) / 75)) : 0
-        level += (target - level) * (target > level ? 0.55 : 0.18)
+        let target = rms.isFinite && rms > 0 ? min(1, max(0, (20 * log10(rms) + 110) / 85)) : 0
+        level += (target - level) * (target > level ? 0.85 : 0.55)
         if level < 0.002 { level = 0 }
+        let meanDB = 20 * log10(max(rms, 0.0000001))
+        inputEnvelope = envelope.map { amplitude in
+            guard amplitude.isFinite, amplitude > 0.000003 else { return 0 }
+            let db = 20 * log10(amplitude)
+            let base = pow(min(1, max(0, (db + 110) / 85)), 0.65)
+            // Enlarge genuine within-buffer variations without inventing idle motion.
+            return min(1, max(0, base + (db - meanDB) * 0.10))
+        }
         let now = ProcessInfo.processInfo.systemUptime
         guard let reading else {
             feedback.gap()
@@ -416,6 +430,7 @@ private final class AudioDriver {
         fixtureTask?.cancel(); fixtureTask = nil
         if !demo || tone { audio.stop() }
         listening = false; requesting = false; tone = false; level = 0
+        inputEnvelope = Array(repeating: 0, count: 9)
         clearReading()
         UIApplication.shared.isIdleTimerDisabled = false
     }

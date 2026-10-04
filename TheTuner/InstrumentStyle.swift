@@ -222,22 +222,15 @@ struct InputActivity: View {
     let level: Double
     let enabled: Bool
     let status: String
-    @State private var history = Array(repeating: 0.0, count: 9)
+    let envelope: [Double]
     var body: some View {
         HStack(alignment: .center, spacing: 3) {
-            ForEach(history.indices, id: \.self) { index in
-                Capsule().fill(theme.style.orange.opacity(enabled ? 0.45 + history[index] * 0.55 : 0.25))
-                    .frame(width: 2, height: 3 + (enabled ? history[index] : 0) * 19)
+            ForEach(envelope.indices, id: \.self) { index in
+                Capsule().fill(theme.style.orange.opacity(enabled ? 0.75 + envelope[index] * 0.25 : 0.25))
+                    .frame(width: 2, height: 3 + (enabled ? envelope[index] : 0) * 21)
             }
         }.frame(width: 42, height: 24)
-            .animation(reduceMotion ? nil : .linear(duration: 0.08), value: history)
-            .onChange(of: level) { _, value in
-                if !enabled || value == 0 { history = Array(repeating: 0, count: 9) }
-                else { history.removeFirst(); history.append(value) }
-            }
-            .onChange(of: enabled) { _, value in
-                if !value { history = Array(repeating: 0, count: 9) }
-            }
+            .animation(reduceMotion ? nil : .linear(duration: 0.045), value: envelope)
             .accessibilityElement(children: .ignore)
             .accessibilityIdentifier("inputStatus").accessibilityLabel(status)
             .accessibilityValue(String(Int((enabled ? level : 0) * 100)))

@@ -69,7 +69,7 @@ struct TunerView: View {
         HStack(alignment: .top) {
             selectors
             Spacer()
-            InputActivity(level: model.level, enabled: (model.listening || model.demo) && !model.permissionDenied && !model.tone, status: model.inputStatus)
+            InputActivity(level: model.level, enabled: (model.listening || model.demo) && !model.permissionDenied && !model.tone, status: model.inputStatus, envelope: model.inputEnvelope)
                 .padding(.top, 10)
             Button { settings = true } label: {
                 Image(systemName: "gearshape").font(.system(size: 23, weight: .regular)).frame(width: 44, height: 44).contentShape(Rectangle())

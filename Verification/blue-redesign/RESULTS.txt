@@ -47,3 +47,10 @@ Proportion and text correction, 2026-10-04:
 - Removed large repeated instrument/Tuner heading and idle divider. Kept one small plucking prompt.
 - Instrument/tuning/lock and weak-input-without-pitch tests passed (2/2).
 - Visually inspected fixed-proportions.png; signed Release build passed.
+
+Weak-input sensitivity follow-up, 2026-10-04:
+- Nine bars now use nine short PCM-slice RMS values per buffer instead of smoothed whole-buffer history.
+- Expanded display range to -110 dBFS, increased brightness, shortened interpolation, and magnified real within-buffer dB variation.
+- No random/clock-driven animation; silence and pause clear all bars; pitch thresholds unchanged.
+- Weak input and pause/reference-tone tests passed. Repeated weak-input test at 0.1x previous fixture amplitude passed, with activity and no acquired pitch followed by silence.
+- Visually inspected sensitive-input.png. Signed Release build passed.
