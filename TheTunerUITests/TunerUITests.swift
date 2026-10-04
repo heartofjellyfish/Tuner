@@ -127,6 +127,18 @@ final class TunerUITests: XCTestCase {
         XCTAssertEqual(app.otherElements["pitchDisplay"].value as? String, "Play a note")
         screenshot("chromatic-ring-silent")
     }
+    func testChromaticInstrumentDropdown() {
+        launch(["--chromatic"])
+        XCTAssertTrue(app.buttons["instrumentMenu"].isHittable)
+        app.buttons["instrumentMenu"].tap()
+        app.buttons["Guitar"].tap()
+        XCTAssertEqual(app.buttons["instrumentMenu"].label, "Instrument, Guitar")
+        XCTAssertTrue(app.buttons["string-6"].exists)
+        app.buttons["instrumentMenu"].tap()
+        app.buttons["Chromatic"].tap()
+        XCTAssertEqual(app.buttons["instrumentMenu"].label, "Instrument, Chromatic")
+        screenshot("chromatic-dropdown")
+    }
     func testChromaticHoldAndCalibration() {
         launch(["--chromatic"])
         XCTAssertFalse(app.buttons["holdPitch"].exists)

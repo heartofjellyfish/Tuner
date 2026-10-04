@@ -72,13 +72,13 @@ struct TunerView: View {
         if model.instrument == .chromatic {
             ZStack {
                 Button { instruments = true } label: {
-                    Text("Chromatic").font(.system(size: 23)).frame(minHeight: 44)
+                    HStack(spacing: 10) {
+                        Text("Chromatic").font(.system(size: 23))
+                        Image(systemName: "chevron.down").font(.system(size: 12, weight: .medium))
+                    }.frame(minHeight: 44).contentShape(Rectangle())
                 }.buttonStyle(.plain).accessibilityIdentifier("instrumentMenu")
                     .accessibilityLabel("Instrument, Chromatic")
                 HStack {
-                    Button { instruments = true } label: {
-                        Image(systemName: "chevron.left").font(.system(size: 21)).frame(width: 44, height: 44)
-                    }.buttonStyle(.plain).accessibilityLabel("Choose instrument")
                     Spacer()
                     Button { settings = true } label: {
                         Image(systemName: "gearshape").font(.system(size: 23)).frame(width: 44, height: 44)
