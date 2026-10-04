@@ -183,6 +183,20 @@ struct Headstock: View {
     let select: (Int) -> Void
     private var guitar: Bool { instrument == .guitar || instrument == .bass }
     private var half: Int { (notes.count + 1) / 2 }
+    /// Nominal visual gauges: preserve physical string order when changing guitar tuning.
+    private func stringWidth(_ index: Int) -> CGFloat {
+        let position = CGFloat(notes.count - 1 - index) / CGFloat(max(1, notes.count - 1))
+        switch instrument {
+        case .bass: return 1.1 + position * 2.7
+        case .ukulele:
+            let low = notes.min() ?? 0, high = notes.max() ?? 0
+            return 0.85 + CGFloat(high - notes[index]) / CGFloat(max(1, high - low)) * 1.65
+        case .banjo where notes.count == 5:
+            if index == 0 { return 0.85 } // Short, high-pitched drone string.
+            return 0.85 + CGFloat(notes.count - 1 - index) / CGFloat(notes.count - 2) * 1.8
+        default: return 0.8 + position * 2.0
+        }
+    }
     private func peg(_ index: Int, size: CGSize) -> CGPoint {
         let half = self.half
         let left = index < half
@@ -245,9 +259,11 @@ struct Headstock: View {
                                 glow.stroke(string, with: .color((inTune ? style.tuned : style.orange).opacity(0.3)), lineWidth: 4)
                             }
                         }
-                        context.stroke(string, with: .color(selected == i ? (inTune ? style.tuned : style.orange) : completed.contains(i) ? style.tuned.opacity(0.65) : style.ink.opacity(0.65)), lineWidth: selected == i ? 1.6 : 1.2)
+                        let width = stringWidth(i)
+                        let stringColor = selected == i ? (inTune ? style.tuned : style.orange) : completed.contains(i) ? style.tuned.opacity(0.65) : style.ink.opacity(0.65)
+                        context.stroke(string, with: .color(stringColor), lineWidth: width)
                         if instrument == .mandolin {
-                            context.stroke(string.offsetBy(dx: 3, dy: 0), with: .color(selected == i ? (inTune ? style.tuned : style.orange) : style.ink.opacity(0.65)), lineWidth: 1)
+                            context.stroke(string.offsetBy(dx: 4, dy: 0), with: .color(stringColor), lineWidth: width)
                         }
                         let circle = Path(ellipseIn: CGRect(x: post.x - 9, y: post.y - 9, width: 18, height: 18))
                         context.fill(circle, with: .color(style.face))
