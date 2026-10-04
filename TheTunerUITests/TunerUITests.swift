@@ -15,6 +15,26 @@ final class TunerUITests: XCTestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
+    func testFixedMainLayout() {
+        launch()
+        XCTAssertEqual(app.scrollViews.count, 0)
+        let before = app.buttons["instrumentMenu"].frame
+        app.swipeUp()
+        XCTAssertEqual(app.buttons["instrumentMenu"].frame.minY, before.minY, accuracy: 1)
+        XCTAssertFalse(app.staticTexts["Tune up"].exists)
+        screenshot("fixed-arc-six-strings")
+        app.buttons["tuningMenu"].tap()
+        app.swipeUp()
+        app.buttons["8-string"].tap()
+        for number in 1...8 {
+            let button = app.buttons["string-\(number)"]
+            XCTAssertTrue(button.isHittable)
+            XCTAssertLessThanOrEqual(button.frame.maxY, app.frame.maxY)
+            button.tap()
+            XCTAssertEqual(button.value as? String, "Locked")
+        }
+        screenshot("fixed-arc-eight-strings")
+    }
     func testNoiseFloorStaysQuiet() {
         launch(["--noise-floor"])
         XCTAssertEqual(app.descendants(matching: .any)["inputStatus"].value as? String, "0")

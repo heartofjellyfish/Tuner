@@ -15,33 +15,32 @@ struct TunerView: View {
     @State private var editingTuning: Tuning?
     var body: some View {
         GeometryReader { geo in
-            ScrollView {
-                VStack(spacing: 10) {
-                    header
-                    VStack(spacing: 0) {
-                        meter
-                        if model.instrument == .chromatic { chromaticDetails }
-                        else {
-                            if model.lockedIndex != nil {
-                                Button { model.automatic() } label: {
-                                    Label("AUTO", systemImage: "lock.open").technical(9)
-                                        .frame(minWidth: 100, minHeight: 44).contentShape(Rectangle())
-                                }.buttonStyle(.plain).accessibilityIdentifier("autoString")
-                                    .accessibilityLabel("Unlock string, return to automatic")
-                            } else {
-                                Color.clear.frame(height: 44).accessibilityHidden(true)
-                            }
-                            Headstock(instrument: model.instrument, notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, inTune: model.inTune, select: model.selectString)
-                                .aspectRatio(model.notes.count > 6 ? 1.2 : 1.42, contentMode: .fit)
-                                .padding(.horizontal, 8).opacity(model.isHeld ? 0.55 : 1)
-                        }
+            VStack(spacing: 8) {
+                header
+                Spacer(minLength: 0)
+                meter(readoutHeight: min(142, geo.size.height * 0.17), arcHeight: min(132, geo.size.height * 0.17))
+                if model.instrument == .chromatic {
+                    chromaticDetails.frame(maxHeight: .infinity)
+                } else {
+                    Group {
+                        if model.lockedIndex != nil {
+                            Button { model.automatic() } label: {
+                                Label("AUTO", systemImage: "lock.open").technical(9)
+                                    .frame(minWidth: 100, minHeight: 44).contentShape(Rectangle())
+                            }.buttonStyle(.plain).accessibilityIdentifier("autoString")
+                                .accessibilityLabel("Unlock string, return to automatic")
+                        } else { Color.clear.frame(height: 44).accessibilityHidden(true) }
                     }
+                    Headstock(instrument: model.instrument, notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, inTune: model.inTune, select: model.selectString)
+                        .aspectRatio(model.notes.count > 6 ? 1.0 : 1.1, contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.horizontal, 8).opacity(model.isHeld ? 0.55 : 1)
                 }
-                .frame(maxWidth: 480)
-                .padding(.horizontal, 26).padding(.top, 8).padding(.bottom, 8)
-                .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
-            }.scrollIndicators(.hidden)
-                .background(style.shell.ignoresSafeArea())
+            }
+            .frame(maxWidth: 480)
+            .padding(.horizontal, 26).padding(.vertical, 12)
+            .frame(width: geo.size.width, height: geo.size.height)
+            .background(style.shell.ignoresSafeArea())
         }
         .foregroundStyle(style.ink).tint(style.orange)
         .preferredColorScheme(theme == .chalk ? .light : .dark)
@@ -125,45 +124,31 @@ struct TunerView: View {
     private var idlePrompt: String {
         model.instrument == .chromatic || model.instrument.bowed ? "Play a note" : "Pluck a string"
     }
-    private var meter: some View {
-        VStack(spacing: 10) {
-            Group {
-                if model.displayNote != nil {
-                    HStack(alignment: .center, spacing: 16) {
-                        Group {
-                            if let note = model.displayNote {
-                                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                                    Text(PitchMath.name(note)).font(.system(size: 160, weight: .bold)).tracking(-7)
-                                    Text("\(PitchMath.octave(note))").font(.system(size: 43, weight: .semibold))
-                                }.lineLimit(1).minimumScaleFactor(0.5)
-                            }
-                        }.frame(maxWidth: .infinity, alignment: .leading)
-                        Rectangle().fill(style.silver).frame(width: 1, height: 80)
-                        VStack(alignment: .leading, spacing: 10) {
-                            if model.frequency != nil {
-                                Image(systemName: model.inTune ? "checkmark.circle" : abs(model.cents) <= 3 ? "circle.dotted" : model.cents < 0 ? "arrow.up" : "arrow.down")
-                                    .font(.system(size: 26, weight: .light))
-                                    .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? 0 : model.successCount)
-                            }
-                            Text(model.frequency == nil ? idlePrompt : model.inTune ? "In tune" : abs(model.cents) <= 3 ? "Settling" : model.cents < 0 ? "Tune up" : "Tune down")
-                                .font(.system(size: 18, weight: .medium)).fixedSize(horizontal: false, vertical: true)
-                            Group {
-                                if model.isHeld { Text("Last reading") }
-                                else if showCents, model.frequency != nil {
-                                    Text(abs(model.visualCents) < 0.5 ? "0 ct" : String(format: "%+.0f ct", model.visualCents))
-                                }
-                            }.font(.system(size: 11, design: .monospaced)).monospacedDigit()
-                                .foregroundStyle(style.muted).accessibilityIdentifier("centsDetail")
-                        }.foregroundStyle(model.inTune ? style.tunedInk : style.orange).frame(width: 102, alignment: .leading)
+    private func meter(readoutHeight: CGFloat, arcHeight: CGFloat) -> some View {
+        VStack(spacing: 8) {
+            ZStack(alignment: .bottom) {
+                Group {
+                    if let note = model.displayNote {
+                        HStack(alignment: .firstTextBaseline, spacing: 1) {
+                            Text(PitchMath.name(note)).font(.system(size: 94, weight: .medium)).tracking(-3)
+                            Text("\(PitchMath.octave(note))").font(.system(size: 34, weight: .medium))
+                        }.lineLimit(1).minimumScaleFactor(0.6)
+                            .foregroundStyle(model.inTune ? style.tunedInk : style.ink)
+                    } else {
+                        Text(idlePrompt).font(.system(size: 18)).foregroundStyle(style.muted)
                     }
-                } else {
-                    Text(idlePrompt).font(.system(size: 18, weight: .regular))
-                        .foregroundStyle(style.muted).frame(maxWidth: .infinity)
-                }
-            }.frame(height: 166)
-            PitchRuler(note: model.displayNote, cents: model.visualCents, active: model.frequency != nil, inTune: model.inTune)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                Group {
+                    if model.isHeld { Text("Last reading") }
+                    else if showCents, model.frequency != nil {
+                        Text(abs(model.visualCents) < 0.5 ? "0 ct" : String(format: "%+.0f ct", model.visualCents))
+                    }
+                }.font(.system(size: 11, design: .monospaced)).monospacedDigit()
+                    .foregroundStyle(style.muted).accessibilityIdentifier("centsDetail")
+            }.frame(height: readoutHeight)
+            PitchArc(note: model.displayNote, cents: model.visualCents, active: model.frequency != nil, inTune: model.inTune)
+                .frame(height: arcHeight)
         }
-        .padding(.bottom, 0)
         .opacity(model.isHeld ? 0.5 : 1)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: model.isHeld)
         .accessibilityElement(children: .ignore)

@@ -54,52 +54,48 @@ struct StatusLight: View {
             .accessibilityHidden(true)
     }
 }
-/// Three equal, 100-cent bands; boundaries sit halfway between note centers.
-struct PitchRuler: View {
+/// Each arc sector spans 100 cents, bounded halfway between neighboring notes.
+struct PitchArc: View {
     @Environment(\.tunerTheme) private var theme
-    private var style: CleanStyle { theme.style }
     let note: Int?
     let cents: Double
     let active: Bool
     var inTune = false
     var body: some View {
-        GeometryReader { geo in
-            let width = geo.size.width - 32
-            let markerX = 16 + width * (0.5 + max(-149, min(149, cents)) / 300)
-            let proximity = TuningProximity.closeness(cents)
-            let accent = inTune ? style.tuned : style.orange
-            ZStack(alignment: .topLeading) {
-                HStack(spacing: 2) {
-                    ForEach(0..<3) { index in
-                        Text(note.map { PitchMath.name($0 + index - 1) } ?? "—")
-                            .font(.system(size: 16, weight: index == 1 ? .medium : .regular))
-                            .frame(maxWidth: .infinity).frame(height: 42)
-                            .background(style.ink.opacity(index == 1 ? 0.12 : 0.055))
-                    }
-                }.padding(.horizontal, 16).offset(y: 26)
-                Text("−").font(.system(size: 20, weight: .light)).offset(x: -4, y: -2)
-                Text("+").font(.system(size: 20, weight: .light)).offset(x: geo.size.width - 12, y: -2)
-                // Sparse graduation marks are kept outside the note bands.
-                Path { path in
-                    for tick in 0...30 {
-                        let x = 16 + width * CGFloat(tick) / 30
-                        path.move(to: CGPoint(x: x, y: tick % 5 == 0 ? 4 : 10))
-                        path.addLine(to: CGPoint(x: x, y: 21))
-                    }
-                }.stroke(style.ink.opacity(0.35), lineWidth: 0.7)
-                if active {
-                    Capsule().fill(accent.opacity(0.25 + proximity * 0.25))
-                        .frame(width: 18 - 8 * proximity, height: 45)
-                        .blur(radius: 7 - proximity * 3).position(x: markerX, y: 20)
-                    Rectangle().fill(accent).frame(width: 3, height: 32)
-                        .position(x: markerX, y: 10)
-                    if abs(cents) > 150 {
-                        Text(cents < 0 ? "‹" : "›").foregroundStyle(accent)
-                            .position(x: markerX, y: 47)
-                    }
+        Canvas { context, size in
+            let style = theme.style
+            let radius = size.width * 0.76
+            let origin = CGPoint(x: size.width / 2, y: radius + 40)
+            func point(_ degrees: Double, _ r: Double) -> CGPoint {
+                CGPoint(x: origin.x + cos(degrees * .pi / 180) * r,
+                        y: origin.y + sin(degrees * .pi / 180) * r)
+            }
+            for zone in 0..<3 {
+                var band = Path()
+                band.addArc(center: origin, radius: radius, startAngle: .degrees(-126 + Double(zone) * 24), endAngle: .degrees(-102 + Double(zone) * 24), clockwise: false)
+                context.stroke(band, with: .color(style.ink.opacity(zone == 1 ? 0.21 : 0.12)), lineWidth: 22)
+                if let note {
+                    context.draw(Text(PitchMath.name(note + zone - 1)).font(.system(size: 18, weight: .medium)).foregroundColor(style.ink), at: point(-114 + Double(zone) * 24, radius + 28))
                 }
             }
-        }.frame(height: 70).accessibilityHidden(true)
+            context.draw(Text("−").font(.system(size: 22, weight: .light)).foregroundColor(style.muted), at: CGPoint(x: 8, y: min(size.height - 12, 105)))
+            context.draw(Text("+").font(.system(size: 22, weight: .light)).foregroundColor(style.muted), at: CGPoint(x: size.width - 8, y: min(size.height - 12, 105)))
+            if active {
+                let angle = -90 + max(-149, min(149, cents)) * 0.24
+                let accent = inTune ? style.tuned : style.orange
+                let start = point(angle, radius - 34), end = point(angle, radius + 13)
+                var needle = Path(); needle.move(to: start); needle.addLine(to: end)
+                context.drawLayer { glow in
+                    glow.addFilter(.blur(radius: 7))
+                    glow.stroke(needle, with: .color(accent.opacity(0.16 + TuningProximity.closeness(cents) * 0.14)), lineWidth: 8)
+                }
+                context.stroke(needle, with: .color(accent), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                context.fill(Path(ellipseIn: CGRect(x: start.x - 3.5, y: start.y - 3.5, width: 7, height: 7)), with: .color(accent))
+                if abs(cents) > 150 {
+                    context.draw(Text(cents < 0 ? "‹" : "›").foregroundColor(accent), at: point(cents < 0 ? -126 : -54, radius))
+                }
+            }
+        }.accessibilityHidden(true)
     }
 }
 
@@ -123,14 +119,14 @@ struct Headstock: View {
         if instrument == .banjo && notes.count == 5 && index == 0 {
             return CGPoint(x: size.width * 0.32, y: size.height * 0.81)
         }
-        return CGPoint(x: size.width * (left ? 0.40 : 0.60), y: size.height * y)
+        return CGPoint(x: size.width * (left ? 0.37 : 0.63), y: size.height * y)
     }
     var body: some View {
         GeometryReader { geo in
             let size = geo.size
             ZStack {
                 Canvas { context, _ in
-                    func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: size.width * x, y: size.height * y) }
+                    func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: size.width * (0.5 + (x - 0.5) * 1.3), y: size.height * y) }
                     var shape = Path()
                     shape.move(to: p(0.34, 0.10))
                     if guitar {
@@ -156,7 +152,7 @@ struct Headstock: View {
                     }
                     context.stroke(shape, with: .color(style.ink.opacity(0.8)), lineWidth: 1.1)
 
-                    let nut = CGRect(x: size.width * 0.40, y: size.height * 0.89, width: size.width * 0.20, height: 7)
+                    let nut = CGRect(x: size.width * 0.37, y: size.height * 0.89, width: size.width * 0.26, height: 7)
 
                     context.stroke(Path(nut), with: .color(style.muted), lineWidth: 0.7)
                     for i in notes.indices {
@@ -165,7 +161,7 @@ struct Headstock: View {
                         let outerX = size.width * (isLeft ? 0.16 : 0.84)
                         var stem = Path(); stem.move(to: post); stem.addLine(to: CGPoint(x: outerX, y: post.y))
                         context.stroke(stem, with: .color(style.muted), lineWidth: 1)
-                        let endX = size.width * (0.41 + CGFloat(i) / CGFloat(notes.count - 1) * 0.18)
+                        let endX = size.width * (0.383 + CGFloat(i) / CGFloat(notes.count - 1) * 0.234)
                         var string = Path(); string.move(to: post)
                         string.addLine(to: CGPoint(x: endX, y: size.height * 0.89))
                         string.addLine(to: CGPoint(x: endX, y: size.height))

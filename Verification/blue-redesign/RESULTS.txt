@@ -61,3 +61,14 @@ Correct exaggerated quiet-room activity, 2026-10-04:
 - Noise-floor PCM test: no visual level or false pitch. Weak-input PCM test: small positive level, no pitch, then zero after silence.
 - Pause/reference-tone test initially missed a Settings tap after app activation; passed when rerun alone.
 - Signed Release build passed. Real-room perception still depends on microphone input; no fabricated/random idle motion.
+
+Selected arc design, 2026-10-04:
+- Centered pitch name and octave, removed visible Tune up/down and direction text.
+- Replaced ruler with three 100-cent arc sectors, a continuous cents pointer, and minus/plus endpoints.
+- Success still turns note, pointer and selected string green with existing haptic feedback.
+- Main page is a fixed viewport with no ScrollView; selection/editor sheets still scroll.
+- Enlarged headstock uniformly, retained its proportions and string labels.
+- iPhone SE instrument/tuning/lock and custom limits tests passed (2/2).
+- Fixed-main test passed, including unchanged header after swipe, no main ScrollView, and tapping all eight string targets.
+- Repeated fixed-main test after proportional enlargement passed. Inspected final iPhone 16e screenshot arc-final.png.
+- Signed Release build passed.
