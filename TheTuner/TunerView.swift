@@ -17,11 +17,14 @@ struct TunerView: View {
         GeometryReader { geo in
             VStack(spacing: 8) {
                 header
-                Spacer(minLength: 0)
-                meter(readoutHeight: min(142, geo.size.height * 0.17), arcHeight: min(132, geo.size.height * 0.17))
                 if model.instrument == .chromatic {
-                    chromaticDetails.frame(maxHeight: .infinity)
+                    inputActivity(expanded: true).padding(.top, 12)
+                    Spacer(minLength: 16).frame(maxHeight: 64)
+                    chromaticMeter
+                    Spacer(minLength: 16)
                 } else {
+                    Spacer(minLength: 0)
+                    meter(readoutHeight: min(142, geo.size.height * 0.17), arcHeight: min(132, geo.size.height * 0.17))
                     Group {
                         if model.lockedIndex != nil {
                             Button { model.automatic() } label: {
@@ -64,16 +67,37 @@ struct TunerView: View {
         }
         .environment(\.tunerTheme, theme)
     }
-    private var header: some View {
-        HStack(alignment: .top) {
-            selectors
-            Spacer()
-            InputActivity(level: model.level, enabled: (model.listening || model.demo) && !model.permissionDenied && !model.tone, status: model.inputStatus, envelope: model.inputEnvelope)
-                .padding(.top, 10)
-            Button { settings = true } label: {
-                Image(systemName: "gearshape").font(.system(size: 23, weight: .regular)).frame(width: 44, height: 44).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityLabel("Settings").accessibilityIdentifier("settings")
-        }.padding(.horizontal, 5)
+    @ViewBuilder private var header: some View {
+        if model.instrument == .chromatic {
+            ZStack {
+                Button { instruments = true } label: {
+                    Text("Chromatic").font(.system(size: 23)).frame(minHeight: 44)
+                }.buttonStyle(.plain).accessibilityIdentifier("instrumentMenu")
+                    .accessibilityLabel("Instrument, Chromatic")
+                HStack {
+                    Button { instruments = true } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 21)).frame(width: 44, height: 44)
+                    }.buttonStyle(.plain).accessibilityLabel("Choose instrument")
+                    Spacer()
+                    Button { settings = true } label: {
+                        Image(systemName: "gearshape").font(.system(size: 23)).frame(width: 44, height: 44)
+                    }.buttonStyle(.plain).accessibilityLabel("Settings").accessibilityIdentifier("settings")
+                }
+            }
+        } else {
+            HStack(alignment: .top) {
+                selectors
+                Spacer()
+                inputActivity().padding(.top, 10)
+                Button { settings = true } label: {
+                    Image(systemName: "gearshape").font(.system(size: 23, weight: .regular)).frame(width: 44, height: 44).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityLabel("Settings").accessibilityIdentifier("settings")
+            }.padding(.horizontal, 5)
+        }
+    }
+    private func inputActivity(expanded: Bool = false) -> some View {
+        InputActivity(level: model.level, enabled: (model.listening || model.demo) && !model.permissionDenied && !model.tone,
+                      status: model.inputStatus, envelope: model.inputEnvelope, expanded: expanded)
     }
     private var selectors: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -156,15 +180,50 @@ struct TunerView: View {
         .accessibilityLabel(model.displayNote.map(PitchMath.label) ?? "\(model.instrument.rawValue) tuner")
         .accessibilityValue(model.frequency == nil ? idlePrompt : "\(String(format: "%.1f", model.cents)) cents, \(model.status)")
     }
-    private var chromaticDetails: some View {
-        VStack(spacing: 24) {
-            Button { model.holdPitch() } label: {
-                Label(model.lockedPitch == nil ? "Hold note" : "Release note", systemImage: model.lockedPitch == nil ? "lock.open" : "lock.fill")
-                    .font(.system(size: 13)).frame(minHeight: 44)
-            }.buttonStyle(.plain).disabled(model.displayNote == nil)
-                .accessibilityIdentifier("holdPitch")
-                .accessibilityLabel(model.lockedPitch == nil ? "Hold current pitch" : "Release held pitch")
-        }.frame(maxWidth: .infinity, minHeight: 220)
+    private var chromaticMeter: some View {
+        ZStack {
+            ChromaticRing(note: model.displayNote, cents: model.visualCents,
+                          active: model.frequency != nil, inTune: model.inTune && !model.isHeld)
+            VStack(spacing: 10) {
+                if let note = model.displayNote {
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text(PitchMath.name(note)).font(.system(size: 72, weight: .medium)).tracking(-2)
+                        Text("\(PitchMath.octave(note))").font(.system(size: 28, weight: .medium))
+                    }.lineLimit(1).minimumScaleFactor(0.6)
+                    if model.inTune && !model.isHeld {
+                        Circle().fill(style.tuned).frame(width: 9, height: 9)
+                            .shadow(color: style.tuned.opacity(0.3), radius: 6)
+                    }
+                    if model.isHeld {
+                        Text("Last reading").font(.system(size: 11)).foregroundStyle(style.muted)
+                    } else if showCents, model.frequency != nil {
+                        Text(String(format: "%+.0f ct", model.visualCents))
+                            .font(.system(size: 11, design: .monospaced)).monospacedDigit()
+                            .foregroundStyle(style.muted).accessibilityIdentifier("centsDetail")
+                    }
+                    if model.lockedPitch != nil {
+                        Image(systemName: "lock.fill").font(.system(size: 11)).foregroundStyle(style.muted)
+                    }
+                } else {
+                    Text("Play a note").font(.system(size: 18)).foregroundStyle(style.muted)
+                }
+            }.frame(maxWidth: 170)
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .frame(maxWidth: .infinity)
+        .opacity(model.isHeld ? 0.5 : 1)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: model.isHeld)
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("pitchDisplay")
+        .accessibilityLabel(model.displayNote.map(PitchMath.label) ?? "Chromatic tuner")
+        .accessibilityValue(model.frequency == nil ? "Play a note" : "\(String(format: "%.1f", model.cents)) cents, \(model.status)")
+    }
+    private var holdPitchControl: some View {
+        CleanRow(title: model.lockedPitch == nil ? "Hold note" : "Release note", symbol: model.lockedPitch == nil ? "lock.open" : "lock.fill") {
+            model.holdPitch()
+        }.disabled(model.displayNote == nil)
+            .accessibilityIdentifier("holdPitch")
+            .accessibilityLabel(model.lockedPitch == nil ? "Hold current pitch" : "Release held pitch")
     }
     private var settingsSheet: some View {
         CleanPanel(title: "Settings") {
@@ -174,6 +233,7 @@ struct TunerView: View {
                     CleanRow(title: "Open Settings", symbol: "mic") { UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) }
                 }
             }
+            if model.instrument == .chromatic { holdPitchControl }
             CleanRow(title: model.listening ? "Pause microphone" : "Resume microphone", detail: model.inputStatus.capitalized, symbol: "mic") {
                 if model.listening { model.stop() } else { model.start() }
             }.accessibilityIdentifier("microphoneToggle")

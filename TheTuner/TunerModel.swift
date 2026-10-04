@@ -186,7 +186,7 @@ private final class AudioDriver {
             demo = true
             if args.contains("--ukulele") { instrument = .ukulele; tuningID = "high-g" }
             if args.contains("--chromatic") { instrument = .chromatic }
-            let target = instrument == .ukulele ? 60 : instrument == .chromatic ? 69 : 45
+            let target = args.firstIndex(of: "--midi").flatMap { $0 + 1 < args.count ? Int(args[$0 + 1]) : nil } ?? (instrument == .ukulele ? 60 : instrument == .chromatic ? 69 : 45)
             let previewCents = args.firstIndex(of: "--cents").flatMap { $0 + 1 < args.count ? Double(args[$0 + 1]) : nil } ?? (instrument == .ukulele ? 0 : -8)
             frequency = PitchMath.frequency(target) * pow(2, previewCents / 1200.0)
             recalculate()

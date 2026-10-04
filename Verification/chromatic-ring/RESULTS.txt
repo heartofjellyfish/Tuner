@@ -1,0 +1,20 @@
+Chromatic range alignment — 2026-10-04
+
+Fixed twelve semitone regions, A at top and ascending clockwise.
+Measured range is 100 cents wide and moves 0.3 degrees per cent.
+Actual deviation is preserved; green uses the existing stable ±3 ct criterion.
+Moving and fixed range boundaries share the same radius. No octave-seam angle animation.
+Hold note moved to Settings; cents remains optional. Input bars use actual PCM energy.
+
+PASS: iPhone 16e UI tests: ring states/layout, hold/calibration, fixed guitar layout.
+PASS: iPhone SE UI tests: ring states/layout and hold/calibration.
+PASS: iPhone SE final vertical placement rerun: ring states/layout.
+States: -25, -8, 0, +25, +75 cents; G-sharp/A seam; silence.
+Visual inspection: offset boundaries, aligned mint state, final ring placement.
+PASS: 2070 synthetic pitch cases, 0 failures, maximum error 0.49956 ct.
+PASS: feature/DSP audit, 2382 assertions, 0 failures.
+PASS: Release iOS build with existing signing configuration.
+Installed final Release on paired iPhone 14 Pro.
+
+Synthetic tests do not establish microphone accuracy or parity with TonalEnergy.
+aligned.png is the final iPhone 16e simulator screenshot, using a deterministic preview.

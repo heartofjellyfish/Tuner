@@ -103,14 +103,39 @@ final class TunerUITests: XCTestCase {
         XCTAssertEqual(app.buttons["string-3"].value as? String, "Locked")
         screenshot("ukulele-low-g-locked")
     }
+    func testChromaticRingStatesAndLayout() {
+        for (offset, expected) in [("-25", "A4"), ("-8", "A4"), ("0", "A4"), ("25", "A4"), ("75", "A♯4")] {
+            launch(["--chromatic", "--cents", offset])
+            let display = app.otherElements["pitchDisplay"]
+            XCTAssertEqual(display.label, expected)
+            XCTAssertEqual(app.scrollViews.count, 0)
+            XCTAssertLessThan(display.frame.maxY, app.frame.maxY)
+            XCTAssertGreaterThan(display.frame.minY, app.descendants(matching: .any)["inputStatus"].frame.maxY)
+            XCTAssertFalse(app.buttons["holdPitch"].exists)
+            screenshot("chromatic-ring-\(offset)")
+            app.terminate()
+        }
+        launch(["--chromatic", "--midi", "68", "--cents", "49"])
+        XCTAssertEqual(app.otherElements["pitchDisplay"].label, "G♯4")
+        screenshot("chromatic-before-wrap")
+        app.terminate()
+        launch(["--chromatic", "--midi", "68", "--cents", "51"])
+        XCTAssertEqual(app.otherElements["pitchDisplay"].label, "A4")
+        screenshot("chromatic-after-wrap")
+        app.terminate()
+        launch(["--chromatic", "--silent"])
+        XCTAssertEqual(app.otherElements["pitchDisplay"].value as? String, "Play a note")
+        screenshot("chromatic-ring-silent")
+    }
     func testChromaticHoldAndCalibration() {
         launch(["--chromatic"])
+        XCTAssertFalse(app.buttons["holdPitch"].exists)
+        app.buttons["settings"].tap()
         XCTAssertTrue(app.buttons["holdPitch"].exists)
         app.buttons["holdPitch"].tap()
         XCTAssertEqual(app.buttons["holdPitch"].label, "Release held pitch")
         screenshot("chromatic-held")
         app.buttons["holdPitch"].tap()
-        app.buttons["settings"].tap()
         app.buttons["reference"].tap()
         app.buttons["reference-442"].tap()
         app.buttons["close-Concert A"].tap()

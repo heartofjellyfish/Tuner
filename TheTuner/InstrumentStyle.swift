@@ -99,6 +99,74 @@ struct PitchArc: View {
     }
 }
 
+/// Fixed semitone cells; the measured range has the same width and slides over them.
+/// No angle animation: crossing the octave seam must never spin through the dial.
+struct ChromaticRing: View {
+    @Environment(\.tunerTheme) private var theme
+    let note: Int?
+    let cents: Double
+    let active: Bool
+    let inTune: Bool
+
+    var body: some View {
+        Canvas { context, size in
+            let style = theme.style
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            let outer = min(size.width, size.height) / 2 - 3
+            let inner = outer * 0.73
+            let selected = note.map { (($0 - 9) % 12 + 12) % 12 }
+            let pitchAngle = Double(selected ?? 0) * 30 - 90 + cents * 0.3
+            func point(_ angle: Double, _ radius: CGFloat) -> CGPoint {
+                CGPoint(x: center.x + cos(angle * .pi / 180) * radius,
+                        y: center.y + sin(angle * .pi / 180) * radius)
+            }
+            func sector(_ angle: Double) -> Path {
+                var path = Path()
+                path.addArc(center: center, radius: outer, startAngle: .degrees(angle - 15), endAngle: .degrees(angle + 15), clockwise: false)
+                path.addLine(to: point(angle + 15, inner))
+                path.addArc(center: center, radius: inner, startAngle: .degrees(angle + 15), endAngle: .degrees(angle - 15), clockwise: true)
+                path.closeSubpath()
+                return path
+            }
+            for index in 0..<12 {
+                let cell = sector(Double(index) * 30 - 90)
+                context.fill(cell, with: .color(style.ink.opacity(selected == index ? 0.12 : 0.045)))
+                context.stroke(cell, with: .color(style.ink.opacity(0.20)), lineWidth: 0.6)
+            }
+            if active, selected != nil {
+                let range = sector(pitchAngle)
+                let light = inTune ? style.tuned : style.ink
+                context.drawLayer { glow in
+                    glow.addFilter(.blur(radius: inTune ? 7 : 4))
+                    glow.fill(range, with: .color(light.opacity(inTune ? 0.26 : 0.12)))
+                }
+                context.fill(range, with: .color(light.opacity(0.88)))
+                // The two moving edges and two fixed edges supply an alignment baseline.
+                for angle in [pitchAngle - 15, pitchAngle + 15] {
+                    var edge = Path(); edge.move(to: point(angle, inner)); edge.addLine(to: point(angle, outer))
+                    context.stroke(edge, with: .color(light), lineWidth: 1.3)
+                }
+                if let selected {
+                    for angle in [Double(selected) * 30 - 105, Double(selected) * 30 - 75] {
+                        var edge = Path(); edge.move(to: point(angle, inner)); edge.addLine(to: point(angle, outer))
+                        context.stroke(edge, with: .color(style.ink.opacity(0.85)), lineWidth: 0.8)
+                    }
+                }
+            }
+            for index in 0..<12 {
+                let angle = Double(index) * 30 - 90
+                let delta = (angle - pitchAngle) * .pi / 180
+                let distance = abs(atan2(sin(delta), cos(delta)) * 180 / .pi)
+                let covered = active && note != nil && distance < 14
+                let color = covered ? style.shell : style.ink.opacity(selected == index ? 1 : 0.75)
+                context.draw(Text(PitchMath.name(69 + index))
+                    .font(.system(size: size.width < 310 ? 15 : 18, weight: selected == index ? .semibold : .regular))
+                    .foregroundColor(color), at: point(angle, (inner + outer) / 2))
+            }
+        }.accessibilityHidden(true)
+    }
+}
+
 struct Headstock: View {
     @Environment(\.tunerTheme) private var theme
     private var style: CleanStyle { theme.style }
@@ -219,13 +287,15 @@ struct InputActivity: View {
     let enabled: Bool
     let status: String
     let envelope: [Double]
+    var expanded = false
     var body: some View {
-        HStack(alignment: .center, spacing: 3) {
+        HStack(alignment: .center, spacing: expanded ? 5 : 3) {
             ForEach(envelope.indices, id: \.self) { index in
-                Capsule().fill(theme.style.orange.opacity(enabled ? 0.75 + envelope[index] * 0.25 : 0.25))
-                    .frame(width: 2, height: 3 + (enabled ? envelope[index] : 0) * 21)
+                Capsule().fill((expanded ? theme.style.ink : theme.style.orange)
+                    .opacity(enabled ? (expanded ? 0.25 + envelope[index] * 0.75 : 0.75 + envelope[index] * 0.25) : 0.25))
+                    .frame(width: expanded ? 4 : 2, height: 3 + (enabled ? envelope[index] : 0) * (expanded ? 25 : 21))
             }
-        }.frame(width: 42, height: 24)
+        }.frame(width: expanded ? 76 : 42, height: expanded ? 30 : 24)
             .animation(reduceMotion ? nil : .linear(duration: 0.045), value: envelope)
             .accessibilityElement(children: .ignore)
             .accessibilityIdentifier("inputStatus").accessibilityLabel(status)
