@@ -34,7 +34,8 @@ struct TunerView: View {
                                 .accessibilityLabel("Unlock string, return to automatic")
                         } else { Color.clear.frame(height: 44).accessibilityHidden(true) }
                     }
-                    Headstock(instrument: model.instrument, notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, inTune: model.inTune, select: model.selectString)
+                    Headstock(instrument: model.instrument, notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, inTune: model.inTune, completed: model.progress.completed,
+                              lastCompleted: model.lastCompletedIndex, successCount: model.successCount, select: model.selectString)
                         .aspectRatio(model.notes.count > 6 ? 1.0 : 1.1, contentMode: .fit)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(.horizontal, 8).opacity(model.isHeld ? 0.55 : 1)
@@ -164,6 +165,7 @@ struct TunerView: View {
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 Group {
                     if model.isHeld { Text("Last reading") }
+                    else if model.allStringsTuned { Text("All tuned").foregroundStyle(style.tuned) }
                     else if showCents, model.frequency != nil {
                         Text(abs(model.visualCents) < 0.5 ? "0 ct" : String(format: "%+.0f ct", model.visualCents))
                     }
@@ -178,7 +180,7 @@ struct TunerView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("pitchDisplay")
         .accessibilityLabel(model.displayNote.map(PitchMath.label) ?? "\(model.instrument.rawValue) tuner")
-        .accessibilityValue(model.frequency == nil ? idlePrompt : "\(String(format: "%.1f", model.cents)) cents, \(model.status)")
+        .accessibilityValue((model.frequency == nil ? idlePrompt : "\(String(format: "%.1f", model.cents)) cents, \(model.status)") + (model.allStringsTuned ? ", ALL STRINGS TUNED" : ""))
     }
     private var chromaticMeter: some View {
         ZStack {
@@ -242,6 +244,13 @@ struct TunerView: View {
                 .accessibilityIdentifier("referenceTone")
             CleanRow(title: "Concert A", detail: "A4 · \(Int(model.reference)) Hz", symbol: "tuningfork") { calibration = true }
                 .accessibilityIdentifier("reference").accessibilityLabel("Concert A, \(Int(model.reference)) hertz")
+            if model.instrument != .chromatic {
+                CleanRow(title: "Tuning sounds", detail: model.successSoundEnabled ? "On" : "Off", selected: model.successSoundEnabled, symbol: "speaker.wave.2") {
+                    model.successSoundEnabled.toggle()
+                }.accessibilityIdentifier("successSound")
+                CleanRow(title: "Reset tuning progress", symbol: "arrow.counterclockwise") { model.resetProgress() }
+                    .accessibilityIdentifier("resetProgress")
+            }
             CleanRow(title: "Show cents", detail: showCents ? "On" : "Off", selected: showCents, symbol: "number") { showCents.toggle() }
                 .accessibilityIdentifier("showCents")
             Text("COLOR").technical(10).foregroundStyle(style.muted).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 12)

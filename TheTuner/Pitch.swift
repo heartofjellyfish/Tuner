@@ -284,3 +284,28 @@ struct AudioResumeState {
         suspended = false; return true
     }
 }
+
+/// Session history of individually verified strings, not a simultaneous measurement.
+struct StringTuningProgress {
+    private(set) var completed = Set<Int>()
+    private var awaySince: [Int: Double] = [:]
+    private var lastIndex: Int?
+    mutating func update(index: Int, cents: Double, stable: Bool, now: Double) -> Bool {
+        guard cents.isFinite else { return false }
+        if lastIndex != index { awaySince.removeAll(); lastIndex = index }
+        if stable {
+            awaySince[index] = nil
+            return completed.insert(index).inserted
+        }
+        // A different plucked string must not invalidate a manually locked target.
+        if abs(cents) > 5 && abs(cents) < 50 && completed.contains(index) {
+            if awaySince[index] == nil { awaySince[index] = now }
+            if now - (awaySince[index] ?? now) >= 0.5 {
+                completed.remove(index); awaySince[index] = nil
+            }
+        } else { awaySince[index] = nil }
+        return false
+    }
+    mutating func gap() { awaySince.removeAll(); lastIndex = nil }
+    mutating func reset() { self = StringTuningProgress() }
+}

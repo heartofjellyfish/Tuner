@@ -180,6 +180,39 @@ final class TunerUITests: XCTestCase {
         waitForExpectations(timeout: 10) // includes the new three-second last-reading hold
     }
 
+    func testStringProgressCompletionDriftAndReset() {
+        launch(["--progress-test"])
+        for number in stride(from: 6, through: 1, by: -1) {
+            let string = app.buttons["string-\(number)"]
+            expectation(for: NSPredicate(format: "value == %@", "Tuned"), evaluatedWith: string)
+            waitForExpectations(timeout: 5)
+        }
+        XCTAssertTrue((app.otherElements["pitchDisplay"].value as? String)?.contains("ALL STRINGS TUNED") == true)
+        screenshot("all-strings-tuned")
+        let lowE = app.buttons["string-6"]
+        expectation(for: NSPredicate(format: "value != %@", "Tuned"), evaluatedWith: lowE)
+        waitForExpectations(timeout: 7)
+        XCTAssertEqual(app.buttons["string-5"].value as? String, "Tuned")
+        screenshot("string-drift-clears-mark")
+        expectation(for: NSPredicate(format: "value == %@", "Tuned"), evaluatedWith: lowE)
+        waitForExpectations(timeout: 6)
+        app.terminate()
+        launch(["--completed"])
+        XCTAssertEqual(app.buttons["string-6"].value as? String, "Tuned")
+        app.buttons["settings"].tap()
+        let sound = app.buttons["successSound"]
+        tapVisible(sound)
+        XCTAssertNotEqual(sound.value as? String, "Selected")
+        tapVisible(app.buttons["resetProgress"])
+        app.buttons["Done"].tap()
+        XCTAssertNotEqual(lowE.value as? String, "Tuned")
+        app.terminate()
+        app.launchArguments = ["--preview"]
+        app.launch()
+        app.buttons["settings"].tap()
+        XCTAssertNotEqual(app.buttons["successSound"].value as? String, "Selected")
+        app.buttons["successSound"].tap()
+    }
     func testSuccessTailHoldAndNextString() {
         launch(["--feedback-test"])
         let display = app.otherElements["pitchDisplay"]

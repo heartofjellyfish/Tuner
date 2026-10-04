@@ -175,6 +175,11 @@ struct Headstock: View {
     let selected: Int?
     let locked: Int?
     var inTune = false
+    var completed = Set<Int>()
+    var lastCompleted: Int?
+    var successCount = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var haloProgress: CGFloat = 1
     let select: (Int) -> Void
     private var guitar: Bool { instrument == .guitar || instrument == .bass }
     private var half: Int { (notes.count + 1) / 2 }
@@ -240,16 +245,33 @@ struct Headstock: View {
                                 glow.stroke(string, with: .color((inTune ? style.tuned : style.orange).opacity(0.3)), lineWidth: 4)
                             }
                         }
-                        context.stroke(string, with: .color(selected == i ? (inTune ? style.tuned : style.orange) : style.ink.opacity(0.65)), lineWidth: selected == i ? 1.6 : 1.2)
+                        context.stroke(string, with: .color(selected == i ? (inTune ? style.tuned : style.orange) : completed.contains(i) ? style.tuned.opacity(0.65) : style.ink.opacity(0.65)), lineWidth: selected == i ? 1.6 : 1.2)
                         if instrument == .mandolin {
                             context.stroke(string.offsetBy(dx: 3, dy: 0), with: .color(selected == i ? (inTune ? style.tuned : style.orange) : style.ink.opacity(0.65)), lineWidth: 1)
                         }
                         let circle = Path(ellipseIn: CGRect(x: post.x - 9, y: post.y - 9, width: 18, height: 18))
                         context.fill(circle, with: .color(style.face))
                         context.stroke(circle, with: .color(style.ink), lineWidth: 0.9)
-                        context.stroke(Path(ellipseIn: CGRect(x: post.x - 6, y: post.y - 6, width: 12, height: 12)), with: .color(selected == i ? (inTune ? style.tuned : style.orange) : style.ink.opacity(0.7)), lineWidth: selected == i ? 2 : 0.8)
+                        if completed.contains(i) {
+                            context.stroke(circle, with: .color(style.tuned), lineWidth: 1.6)
+                            var check = Path()
+                            check.move(to: CGPoint(x: post.x - 4, y: post.y))
+                            check.addLine(to: CGPoint(x: post.x - 1, y: post.y + 3))
+                            check.addLine(to: CGPoint(x: post.x + 4, y: post.y - 3))
+                            context.stroke(check, with: .color(style.tuned), style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
+                        } else {
+                            context.stroke(Path(ellipseIn: CGRect(x: post.x - 6, y: post.y - 6, width: 12, height: 12)), with: .color(selected == i ? (inTune ? style.tuned : style.orange) : style.ink.opacity(0.7)), lineWidth: selected == i ? 2 : 0.8)
+                        }
                     }
                 }.accessibilityHidden(true)
+                if let index = lastCompleted, notes.indices.contains(index), !reduceMotion {
+                    let post = peg(index, size: size)
+                    Circle().stroke(style.tuned, lineWidth: 1.5)
+                        .frame(width: 22, height: 22)
+                        .scaleEffect(1 + haloProgress)
+                        .opacity(Double(1 - haloProgress) * 0.65)
+                        .position(post).allowsHitTesting(false).accessibilityHidden(true)
+                }
                 ForEach(notes.indices, id: \.self) { i in
                     let isLeft = i < half
                     let post = peg(i, size: size)
@@ -264,10 +286,17 @@ struct Headstock: View {
                         .position(x: size.width * (isLeft ? 0.24 : 0.76), y: post.y)
                         .accessibilityIdentifier("string-\(notes.count - i)")
                         .accessibilityLabel("\(instrument == .mandolin ? "Course" : "String") \(notes.count - i), \(PitchMath.label(notes[i]))")
-                        .accessibilityValue(locked == i ? "Locked" : selected == i ? "Detected" : "Automatic")
+                        .accessibilityValue(completed.contains(i) ? (locked == i ? "Tuned, Locked" : "Tuned") : locked == i ? "Locked" : selected == i ? "Detected" : "Automatic")
                         .accessibilityAddTraits(selected == i ? .isSelected : [])
                 }
             }
+        }
+        .task(id: successCount) {
+            guard successCount > 0, !reduceMotion else { return }
+            haloProgress = 0
+            try? await Task.sleep(for: .milliseconds(16))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.6)) { haloProgress = 1 }
         }
     }
     private func stringLabel(_ i: Int) -> some View {
@@ -275,7 +304,7 @@ struct Headstock: View {
             Text("\(notes.count - i)").font(.system(size: 10, design: .monospaced)).foregroundStyle(style.muted)
             Text(PitchMath.name(notes[i])).font(.system(size: 14))
             Text("\(PitchMath.octave(notes[i]))").font(.system(size: 9)).baselineOffset(-3)
-        }.foregroundStyle(style.ink).fixedSize()
+        }.foregroundStyle(completed.contains(i) ? style.tuned : style.ink).fixedSize()
     }
 }
 

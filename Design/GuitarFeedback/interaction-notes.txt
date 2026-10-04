@@ -1,0 +1,12 @@
+Design proposal only; app unchanged.
+
+Stable string success: note and selected string turn mint; small check replaces inner post circle.
+One restrained halo pulse, short clear confirmation chime, one light haptic.
+Completion check remains when switching strings. No repeated chime on sustained tone.
+All strings verified this session: brief All tuned label and a resolving two-note chime.
+Marks record previously verified strings, not simultaneous continuous verification of all strings.
+If a marked string is reliably detected out of tune again, clear that string's mark.
+Switching instrument/tuning/reference resets progress. Provide reset through Settings.
+Success sound preference in Settings; respect silent mode. Reduced Motion uses static color/check.
+Implementation must avoid recognizing its own success sound as microphone pitch; suppress pitch feedback during known sound output and allow its tail to decay. Real input meter may still show acoustic energy.
+Threshold/stability should reuse existing ±3 ct feedback criteria rather than a single lucky sample.

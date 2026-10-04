@@ -1,0 +1,18 @@
+Use case: ui-mockup
+Asset type: Clean Tuner guitar tuning success feedback design board.
+Reference image: the attached real app screenshot is the visual layout reference. Preserve its blue background, header position, centered large note, three-note shallow arc gauge, fine line drawing of guitar headstock and string label arrangement. Create THREE full-height app screens side by side on warm ivory presentation canvas, no device hardware. Very polished precise modern minimal typography. This is a modest addition to the existing interface, not a redesign.
+
+Exact guitar label arrangement in EVERY screen: left top "4 D₃", left middle "5 A₂", left bottom "6 E₂"; right top "3 G₃", right middle "2 B₃", right bottom "1 E₄". All six labels exist exactly once. Six strings, six round tuning posts, correct proportioned compact headstock line-art, no realistic wood. Bright ultramarine (#2449D8), ivory lines and text, soft mint (#B4F3C7) for completed strings, pale peach for currently out-of-tune active string. No extra footer, no frequency text, no cents number, no big banners, no confetti.
+
+FIRST screen — A string just successfully tuned:
+Header Guitar dropdown, Standard dropdown, tiny real-input bars and gear. Central large A₂ turns mint. Gauge neighboring notes G♯, A, A♯; center indicator mint. The current 5 A₂ tuning post at LEFT MIDDLE receives one delicate expanding mint halo, shown as a single subtle fading outer ring, and a SMALL crisp mint checkmark inside its circular post. Its string line is mint. Previously completed 6 E₂ at LEFT BOTTOM has a small quiet mint check inside its post, mint label, no halo. Other four posts plain ivory outlines. Completion marks are understated and legible.
+SECOND screen — moved on to tuning D:
+Large central D₃ ivory. Gauge C♯, D, D♯, pale peach indicator slightly left of center. Active LEFT TOP 4 D₃ post has peach outline and peach active string line. Left middle 5 A₂ and left bottom 6 E₂ retain their mint checks and mint note labels, no glow. Remaining three plain ivory. This clearly shows remembered progress while actively tuning a new string.
+THIRD screen — all six strings completed:
+Central large E₄ mint; gauge D♯, E, F, center indicator mint. Beneath large note a single small restrained text "All tuned". ALL SIX tuning posts have identical small crisp mint checkmarks inside their circles, all six note labels mint, fine string lines in understated mint. One slight soft glow at the current right-bottom E₄ post, otherwise calm. No giant check overlay, no dialog, no extra button.
+
+Outside app screens on ivory canvas below them, concise editorial captions and tiny annotation:
+under first: "01  STRING TUNED" and "One soft chime · one light tap"
+under second: "02  PROGRESS STAYS"
+under third: "03  ALL SIX COMPLETE" and "A brief resolving chime"
+Annotations describe sound and haptic; don't draw sound icons inside app. The sound is a short satisfying subtle confirmation, represented ONLY in outside-caption text. Success feedback feels rewarding, polished and precise, like high-end musical equipment, not gamified. Keep screen layout consistent with the reference. Crisp lettering, beautiful balanced proportions.

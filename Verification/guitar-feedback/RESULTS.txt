@@ -1,0 +1,26 @@
+String tuning success feedback — 2026-10-04
+
+Qualified live string readings retain a mint check per string for this app session.
+Repeated sustain never repeats reward. One halo and existing success haptic per completion.
+Short custom PCM chimes: string 0.22 s; all strings 0.38 s.
+System Sound Services used without switching the recording session category.
+Settings: persisted sound preference and manual progress reset (string modes only).
+Instrument/tuning/reference changes reset progress. Silence retains checks.
+Reliable 5–50 ct drift for 0.5 s removes only that mark. Silence or changing strings breaks the drift streak.
+Completion is historical verification, not concurrent measurement of six strings.
+
+PASS: iPhone 16e: PCM sequential six-string completion, drift removal, retune,
+manual reset and persisted sound preference; tail retention; instrument/tuning locks.
+PASS: iPhone SE: same progress workflow and fixed six/eight-string layout.
+PASS: app launch with debug assertion that both bundled WAVs register valid system sound IDs.
+PASS: 2404 feature/DSP assertions, 0 failures.
+PASS: 2070 synthetic pitch cases, 0 failures, max 0.49956 ct.
+PASS: WAVs mono 16-bit PCM, 44.1 kHz; peak amplitudes 0.181 and 0.197, no clipping.
+Visual inspection: all-tuned.png and progress.png.
+
+During chimes, input meter remains live. Known playback/decay interval excludes pitch feedback,
+and discards analysis history before acquisition resumes. Physical room echoes and speaker
+audibility were not measured by simulator tests. Actual sounds and haptics require device use.
+
+Release build installed on paired iPhone 14 Pro.
+API reference: https://developer.apple.com/documentation/AudioToolbox/AudioServicesPlaySystemSound(_:)
