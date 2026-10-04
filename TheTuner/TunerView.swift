@@ -190,6 +190,7 @@ struct TunerView: View {
                         Text(PitchMath.name(note)).font(.system(size: 72, weight: .medium)).tracking(-2)
                         Text("\(PitchMath.octave(note))").font(.system(size: 28, weight: .medium))
                     }.lineLimit(1).minimumScaleFactor(0.6)
+                        .foregroundStyle(model.inTune && !model.isHeld ? style.tunedInk : style.ink)
                     if model.inTune && !model.isHeld {
                         Circle().fill(style.tuned).frame(width: 9, height: 9)
                             .shadow(color: style.tuned.opacity(0.3), radius: 6)
