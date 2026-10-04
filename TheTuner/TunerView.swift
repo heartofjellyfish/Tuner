@@ -2,6 +2,8 @@ import SwiftUI
 
 struct TunerView: View {
     @StateObject private var model = TunerModel()
+    @AppStorage("show-cents") private var showCents = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var phase
     @State private var settings = false
     @State private var instruments = false
@@ -26,9 +28,9 @@ struct TunerView: View {
                                 }.frame(minWidth: 100, minHeight: 44).contentShape(Rectangle())
                             }.buttonStyle(.plain).accessibilityIdentifier("autoString")
                                 .accessibilityLabel(model.lockedIndex == nil ? "Automatic string detection" : "Unlock string, return to automatic")
-                            Headstock(instrument: model.instrument, notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, select: model.selectString)
+                            Headstock(instrument: model.instrument, notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, inTune: model.inTune, select: model.selectString)
                                 .frame(height: max(model.notes.count > 6 ? 270 : 190, min(310, geo.size.height - 480)))
-                                .padding(.horizontal, 8)
+                                .padding(.horizontal, 8).opacity(model.isHeld ? 0.55 : 1)
                         }
                     }.modifier(Surface())
                     footer
@@ -42,6 +44,7 @@ struct TunerView: View {
         .foregroundStyle(CleanStyle.ink).tint(CleanStyle.orange)
         .preferredColorScheme(.light)
         .task { model.begin() }
+        .sensoryFeedback(.success, trigger: model.successCount)
         .onChange(of: phase) { _, new in
             if new == .background { model.background() }
             else if new == .active { model.foreground() }
@@ -119,21 +122,34 @@ struct TunerView: View {
     }
     private var meter: some View {
         VStack(spacing: 0) {
-            PitchArc(note: model.displayNote, cents: model.cents, active: model.frequency != nil)
+            PitchArc(note: model.displayNote, cents: model.visualCents, active: model.frequency != nil, inTune: model.inTune)
                 .frame(height: 156).padding(.horizontal, 24).padding(.top, 26)
-            HStack(alignment: .firstTextBaseline) {
+            HStack {
                 Text("−").technical(17, spacing: 0).foregroundStyle(CleanStyle.muted)
-                Spacer(minLength: 0)
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text(model.frequency == nil ? "—" : (abs(model.cents) < 0.5 ? "0" : String(format: "%+.0f", model.cents)))
-                        .font(.system(size: 43, weight: .regular, design: .rounded)).monospacedDigit()
-                    Text("ct").font(.system(size: 23))
-                }.lineLimit(1).minimumScaleFactor(0.65)
-                Spacer(minLength: 0)
+                Spacer()
+                HStack(spacing: 9) {
+                    if model.frequency != nil {
+                        Image(systemName: model.inTune ? "checkmark.circle.fill" : abs(model.cents) <= 3 ? "circle.dotted" : model.cents < 0 ? "arrow.up.right" : "arrow.down.left")
+                            .font(.system(size: model.inTune ? 26 : 18, weight: .medium))
+                            .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? 0 : model.successCount)
+                    }
+                    Text(model.frequency == nil ? "Play a note" : model.inTune ? "In tune" : abs(model.cents) <= 3 ? "Settling" : model.cents < 0 ? "Tune up" : "Tune down")
+                        .font(.system(size: 20, weight: .medium))
+                }.foregroundStyle(model.inTune ? CleanStyle.tuned : CleanStyle.ink)
+                Spacer()
                 Text("+").technical(17, spacing: 0).foregroundStyle(CleanStyle.muted)
-            }.padding(.horizontal, 18)
-            Text(model.frequency == nil ? "Play a note" : abs(model.cents) <= 3 ? "In tune" : " ").font(.system(size: 11)).foregroundStyle(CleanStyle.muted).padding(.top, 4).padding(.bottom, 6)
+            }.frame(height: 52).padding(.horizontal, 18)
+            Group {
+                if model.isHeld { Text("Last reading") }
+                else if showCents, model.frequency != nil {
+                    Text(abs(model.visualCents) < 0.5 ? "0 ct" : String(format: "%+.0f ct", model.visualCents))
+                } else { Text(" ") }
+            }.font(.system(size: 12, design: .monospaced)).monospacedDigit()
+                .foregroundStyle(CleanStyle.muted).padding(.top, 4).padding(.bottom, 6)
+                .accessibilityIdentifier("centsDetail")
         }
+        .opacity(model.isHeld ? 0.5 : 1)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: model.isHeld)
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("pitchDisplay")
         .accessibilityLabel(model.displayNote.map(PitchMath.label) ?? "No pitch")
@@ -179,7 +195,9 @@ struct TunerView: View {
             }.accessibilityIdentifier("microphoneToggle")
             CleanRow(title: model.tone ? "Stop reference tone" : "Play A4 reference tone", symbol: model.tone ? "stop" : "speaker.wave.2") { model.toggleTone() }
                 .accessibilityIdentifier("referenceTone")
-            Text("Equal temperament · ±3 cents in tune").font(.system(size: 12)).foregroundStyle(CleanStyle.muted).padding(.top, 16)
+            CleanRow(title: "Show cents", detail: showCents ? "On" : "Off", selected: showCents, symbol: "number") { showCents.toggle() }
+                .accessibilityIdentifier("showCents")
+            Text("Settles green within ±3 cents").font(.system(size: 12)).foregroundStyle(CleanStyle.muted).padding(.top, 16)
             Text("Tap a string to lock it. Tap AUTO to release. In Chromatic, tap the note to hold it.")
                 .font(.system(size: 13)).foregroundStyle(CleanStyle.muted).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
             Text("Audio stays on your device.").font(.system(size: 12)).foregroundStyle(CleanStyle.muted)

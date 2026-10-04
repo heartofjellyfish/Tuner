@@ -82,7 +82,39 @@ final class TunerUITests: XCTestCase {
         screenshot("pcm-detected-a2")
         let released = NSPredicate(format: "value == %@", "Play a note")
         expectation(for: released, evaluatedWith: display)
-        waitForExpectations(timeout: 7)
+        waitForExpectations(timeout: 10) // includes the new three-second last-reading hold
+    }
+
+    func testSuccessTailHoldAndNextString() {
+        launch(["--feedback-test"])
+        let display = app.otherElements["pitchDisplay"]
+        expectation(for: NSPredicate(format: "label == %@ AND value CONTAINS %@", "A2", "IN TUNE"), evaluatedWith: display)
+        waitForExpectations(timeout: 5)
+        screenshot("settled-green")
+        expectation(for: NSPredicate(format: "label == %@ AND value CONTAINS %@", "A2", "LAST READING"), evaluatedWith: display)
+        waitForExpectations(timeout: 12)
+        screenshot("last-reading")
+        expectation(for: NSPredicate(format: "label == %@ AND NOT value CONTAINS %@", "D3", "LAST READING"), evaluatedWith: display)
+        waitForExpectations(timeout: 5)
+        screenshot("next-string")
+        expectation(for: NSPredicate(format: "value == %@", "Play a note"), evaluatedWith: display)
+        waitForExpectations(timeout: 9)
+    }
+    func testOptionalCentsPreference() {
+        launch()
+        app.buttons["settings"].tap()
+        let control = app.buttons["showCents"]
+        tapVisible(control)
+        XCTAssertEqual(control.value as? String, "Selected")
+        app.buttons["close-Settings"].tap()
+        screenshot("optional-cents")
+        app.terminate()
+        app.launchArguments = ["--preview"]
+        app.launch()
+        app.buttons["settings"].tap()
+        XCTAssertEqual(app.buttons["showCents"].value as? String, "Selected")
+        app.buttons["showCents"].tap()
+        XCTAssertNotEqual(app.buttons["showCents"].value as? String, "Selected")
     }
 
     func testMicrophoneLifecycle() {

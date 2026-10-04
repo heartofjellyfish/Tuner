@@ -77,6 +77,26 @@ import Foundation
                 }
             }
         }
+        var feedback = TuningFeedback()
+        check(!feedback.update(cents: 0, target: 45, now: 0), "no reward on a transient")
+        check(feedback.update(cents: 1, target: 45, now: 0.3), "reward after settling")
+        check(!feedback.update(cents: 2, target: 45, now: 1), "no repeated reward on sustained note")
+        check(!feedback.update(cents: 4, target: 45, now: 1.2) && feedback.inTune, "green hysteresis")
+        check(!feedback.update(cents: 9, target: 45, now: 1.3) && !feedback.inTune, "out of tune exits green")
+        _ = feedback.update(cents: 9, target: 45, now: 1.8)
+        _ = feedback.update(cents: 0, target: 45, now: 2)
+        check(feedback.update(cents: 0, target: 45, now: 2.3), "reward when deliberately retuned")
+        _ = feedback.update(cents: 0, target: 50, now: 4)
+        feedback.gap()
+        check(!feedback.update(cents: 0, target: 50, now: 4.3), "gap interrupts qualification")
+        check(feedback.update(cents: 0, target: 50, now: 4.6), "new string can succeed")
+        check(ReadingAge.state(elapsed: 0.1) == .live, "short gap bridged")
+        check(ReadingAge.state(elapsed: 1) == .held, "reading retained without zeroing")
+        check(ReadingAge.state(elapsed: 3) == .expired, "stale reading eventually clears")
+        let quiet: [Float] = (0..<8192).map { Float(0.002 * sin(2 * Double.pi * 110 * Double($0) / 48000)) }
+        check(detector.detect(quiet, rate: 48000) == nil, "quiet input cannot acquire from silence")
+        let tail = detector.detect(quiet, rate: 48000, minimumRMS: 0.0008)
+        check(tail != nil && abs(1200 * log2(tail!.frequency / 110)) < 0.5, "quiet periodic tail remains measurable")
         print(String(format: "%d signal cases in %.2f seconds. Failures: %d", total, Date().timeIntervalSince(started), failures))
         print("Scope: deterministic synthetic monophonic signals, 27–1421 Hz, 8192 samples. Not a microphone or competitor accuracy measurement.")
         if failures > 0 { exit(1) }

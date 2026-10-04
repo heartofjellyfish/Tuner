@@ -6,6 +6,7 @@ enum CleanStyle {
     static let ink = Color(hex: 0x242826)
     static let muted = Color(hex: 0x686F6B)
     static let orange = Color(hex: 0xFF941A)
+    static let tuned = Color(hex: 0x3A9D78)
     static let silver = Color(hex: 0xDADDD9)
 }
 extension Color {
@@ -45,6 +46,7 @@ struct PitchArc: View {
     let note: Int?
     let cents: Double
     let active: Bool
+    var inTune = false
     var body: some View {
         Canvas { context, size in
             let radius = min(size.width * 0.50, 170)
@@ -73,13 +75,13 @@ struct PitchArc: View {
                 glow.addArc(center: origin, radius: radius, startAngle: .degrees(max(-150, angle - 12)), endAngle: .degrees(min(-30, angle + 12)), clockwise: false)
                 context.drawLayer { layer in
                     layer.addFilter(.blur(radius: 12))
-                    layer.stroke(glow, with: .color(CleanStyle.orange.opacity(0.4)), lineWidth: 23)
+                    layer.stroke(glow, with: .color((inTune ? CleanStyle.tuned : CleanStyle.orange).opacity(0.4)), lineWidth: 23)
                 }
                 var marker = Path()
                 marker.move(to: point(angle, radius - 24)); marker.addLine(to: point(angle, radius + 17))
-                context.stroke(marker, with: .color(CleanStyle.orange), style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
+                context.stroke(marker, with: .color((inTune ? CleanStyle.tuned : CleanStyle.orange)), style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
                 if abs(cents) > 150 {
-                    context.draw(Text(cents < 0 ? "‹" : "›").font(.system(size: 25)).foregroundColor(CleanStyle.orange), at: point(cents < 0 ? -153 : -27, radius))
+                    context.draw(Text(cents < 0 ? "‹" : "›").font(.system(size: 25)).foregroundColor((inTune ? CleanStyle.tuned : CleanStyle.orange)), at: point(cents < 0 ? -153 : -27, radius))
                 }
             }
         }.accessibilityHidden(true)
@@ -91,6 +93,7 @@ struct Headstock: View {
     let notes: [Int]
     let selected: Int?
     let locked: Int?
+    var inTune = false
     let select: (Int) -> Void
     private var guitar: Bool { instrument == .guitar || instrument == .bass }
     private var half: Int { (notes.count + 1) / 2 }
@@ -152,17 +155,17 @@ struct Headstock: View {
                         if selected == i {
                             context.drawLayer { glow in
                                 glow.addFilter(.blur(radius: 4))
-                                glow.stroke(string, with: .color(CleanStyle.orange.opacity(0.3)), lineWidth: 4)
+                                glow.stroke(string, with: .color((inTune ? CleanStyle.tuned : CleanStyle.orange).opacity(0.3)), lineWidth: 4)
                             }
                         }
-                        context.stroke(string, with: .color(selected == i ? CleanStyle.orange : .white.opacity(0.85)), lineWidth: selected == i ? 1.6 : 1.2)
+                        context.stroke(string, with: .color(selected == i ? (inTune ? CleanStyle.tuned : CleanStyle.orange) : .white.opacity(0.85)), lineWidth: selected == i ? 1.6 : 1.2)
                         if instrument == .mandolin {
-                            context.stroke(string.offsetBy(dx: 3, dy: 0), with: .color(selected == i ? CleanStyle.orange : .white.opacity(0.85)), lineWidth: 1)
+                            context.stroke(string.offsetBy(dx: 3, dy: 0), with: .color(selected == i ? (inTune ? CleanStyle.tuned : CleanStyle.orange) : .white.opacity(0.85)), lineWidth: 1)
                         }
                         let circle = Path(ellipseIn: CGRect(x: post.x - 5.5, y: post.y - 5.5, width: 11, height: 11))
                         context.fill(circle, with: .color(CleanStyle.face))
                         context.stroke(circle, with: .color(CleanStyle.ink), lineWidth: 0.9)
-                        context.fill(Path(ellipseIn: CGRect(x: post.x - 3, y: post.y - 3, width: 6, height: 6)), with: .color(selected == i ? CleanStyle.orange : CleanStyle.muted))
+                        context.fill(Path(ellipseIn: CGRect(x: post.x - 3, y: post.y - 3, width: 6, height: 6)), with: .color(selected == i ? (inTune ? CleanStyle.tuned : CleanStyle.orange) : CleanStyle.muted))
                     }
                 }.accessibilityHidden(true)
                 ForEach(notes.indices, id: \.self) { i in
@@ -172,7 +175,7 @@ struct Headstock: View {
                         HStack(spacing: 5) {
                             if isLeft { stringLabel(i) }
                             Circle()
-                                .fill(selected == i ? CleanStyle.orange : CleanStyle.face.opacity(0.6))
+                                .fill(selected == i ? (inTune ? CleanStyle.tuned : CleanStyle.orange) : CleanStyle.face.opacity(0.6))
                                 .overlay(Circle().stroke(CleanStyle.ink, lineWidth: 1.1))
                                 .frame(width: 28, height: 28)
                             if !isLeft { stringLabel(i) }

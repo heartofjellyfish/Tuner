@@ -19,7 +19,14 @@ or delete it. Mandolin targets are paired courses; tune each string separately.
 Microphone starts automatically after permission. Tap a string to lock its target;
 tap again or AUTO to release. Chromatic supports holding the current target.
 The footer light indicates listening; microphone controls are in Settings.
-Tap the A4 footer to calibrate 420–460 Hz. Equal temperament, ±3 cents in tune.
+Tap the A4 footer to calibrate 420–460 Hz. Equal temperament.
+Green success requires ±3 cents held for 250 ms; it exits beyond ±5 cents to
+avoid flicker. Success emits one visual pulse and haptic, not continuous buzzing.
+Cents are hidden by default; Settings > Show cents enables a small integer readout.
+A credible weak tail continues tracking. After loss, the last result is dimmed
+and labelled Last reading for up to three seconds, then cleared; a new note
+replaces it immediately. The visual marker is smoothed without changing the
+measured pitch or the success qualification.
 Reference tones and microphone pause/resume are available in Settings.
 
 Verification:

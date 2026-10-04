@@ -10,7 +10,7 @@ struct PitchReading {
 /// YIN locates a period on an averaged, reduced-rate signal. Refinement measures
 /// several periods in the original samples, avoiding high-note decimation bias.
 struct PitchDetector {
-    func detect(_ samples: [Float], rate: Double) -> PitchReading? {
+    func detect(_ samples: [Float], rate: Double, minimumRMS: Double = 0.003) -> PitchReading? {
         guard rate.isFinite, rate >= 8000, rate <= 192000, samples.count >= 2048,
               samples.allSatisfy({ $0.isFinite }) else { return nil }
         let stride = max(1, Int(rate / 12000))
@@ -23,7 +23,7 @@ struct PitchDetector {
         var energy = 0.0
         for i in signal.indices { signal[i] -= mean; energy += signal[i] * signal[i] }
         let rms = sqrt(energy / Double(count))
-        guard rms > 0.003 else { return nil }
+        guard rms > minimumRMS else { return nil }
         let sampleRate = rate / Double(stride)
         let minLag = max(2, Int(sampleRate / 1500))
         let maxLag = min(count / 2 - 1, Int(sampleRate / 25))
@@ -202,5 +202,45 @@ enum PitchMath {
         if let previous, (notes.isEmpty || notes.contains(previous)), previous != nearest,
            abs(value - Double(previous)) <= abs(value - Double(nearest)) + 0.12 { return previous }
         return nearest
+    }
+}
+
+/// Temporal qualification belongs to presentation, not to the measured pitch.
+struct TuningFeedback {
+    private(set) var inTune = false
+    private var target: Int?
+    private var nearSince: Double?
+    private var awaySince: Double?
+    private var armed = true
+    private var lastReward = -Double.infinity
+    mutating func update(cents: Double, target: Int, now: Double) -> Bool {
+        if self.target != target {
+            self.target = target; inTune = false; nearSince = nil; awaySince = nil; armed = true
+        }
+        if abs(cents) > 5 {
+            inTune = false; nearSince = nil
+            if awaySince == nil { awaySince = now }
+            if now - (awaySince ?? now) >= 0.4 { armed = true }
+        } else {
+            awaySince = nil
+            if abs(cents) <= 3 {
+                if nearSince == nil { nearSince = now }
+                if now - (nearSince ?? now) >= 0.25 { inTune = true }
+            } else { nearSince = nil }
+        }
+        if inTune && armed && now - lastReward >= 1.5 {
+            armed = false; lastReward = now; return true
+        }
+        return false
+    }
+    mutating func gap() { nearSince = nil; awaySince = nil }
+    mutating func reset() { self = TuningFeedback() }
+}
+
+/// A dimmed last reading is distinct from a live measurement; never synthesize zero.
+enum ReadingAge {
+    case live, held, expired
+    static func state(elapsed: Double) -> ReadingAge {
+        elapsed >= 3 ? .expired : elapsed >= 0.2 ? .held : .live
     }
 }

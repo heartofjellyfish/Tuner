@@ -6,6 +6,8 @@ private final class AnalysisPipeline {
     private let queue = DispatchQueue(label: "clean.tuner.pitch", qos: .userInitiated)
     private var history: [Float] = []
     private var expectedFrame: AVAudioFramePosition?
+    private var tailFrequency: Double?
+    private var tailFrame: AVAudioFramePosition?
     func submit(_ buffer: AVAudioPCMBuffer, at time: AVAudioTime, completion: @escaping (PitchReading?, Double) -> Void) {
         guard let channel = buffer.floatChannelData?[0], gate.wait(timeout: .now()) == .success else { return }
         let samples = Array(UnsafeBufferPointer(start: channel, count: Int(buffer.frameLength)))
@@ -13,12 +15,21 @@ private final class AnalysisPipeline {
         queue.async { [self] in
             defer { gate.signal() }
             // Never concatenate non-contiguous audio if the analysis queue fell behind.
-            if let expectedFrame, expectedFrame != frame { history.removeAll(keepingCapacity: true) }
+            if let expectedFrame, expectedFrame != frame { history.removeAll(keepingCapacity: true); tailFrequency = nil; tailFrame = nil }
             expectedFrame = frame + AVAudioFramePosition(samples.count)
             history.append(contentsOf: samples)
             if history.count > 8192 { history.removeFirst(history.count - 8192) }
             let rms = sqrt(samples.reduce(0.0) { $0 + Double($1 * $1) } / Double(max(1, samples.count)))
-            let reading = rms >= 0.003 && history.count >= 8192 ? PitchDetector().detect(history, rate: rate) : nil
+            let trackingTail = tailFrame.map { Double(frame - $0) / rate < 0.8 } ?? false
+            let threshold = trackingTail ? 0.0008 : 0.003
+            var reading = rms >= threshold && history.count >= 8192 ? PitchDetector().detect(history, rate: rate, minimumRMS: threshold) : nil
+            // Weak input can continue an established note, but cannot acquire a new
+            // pitch from background noise at the lower sustain threshold.
+            if rms < 0.003, let value = reading {
+                if let prior = tailFrequency, abs(1200 * log2(value.frequency / prior)) <= 45 { }
+                else { reading = nil }
+            }
+            if let reading { tailFrequency = reading.frequency; tailFrame = frame }
             completion(reading, rms)
         }
     }
@@ -41,6 +52,7 @@ private final class AudioDriver {
                 let session = AVAudioSession.sharedInstance()
                 try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker])
                 try session.setPreferredSampleRate(48000)
+                try? session.setAllowHapticsAndSystemSoundsDuringRecording(true)
                 try session.setActive(true)
                 let engine = AVAudioEngine()
                 self.engine = engine
@@ -101,7 +113,7 @@ private final class AudioDriver {
 
 @MainActor final class TunerModel: ObservableObject {
     @Published var reference: Double = 440 {
-        didSet { UserDefaults.standard.set(reference, forKey: "reference"); recalculate(); if tone { playTone() } }
+        didSet { feedback.reset(); inTune = false; UserDefaults.standard.set(reference, forKey: "reference"); recalculate(); if tone { playTone() } }
     }
     @Published private(set) var instrument: Instrument = .guitar
     @Published private(set) var customTunings: [String: [Tuning]] = [:]
@@ -115,18 +127,25 @@ private final class AudioDriver {
     @Published private(set) var frequency: Double?
     @Published private(set) var note: Int?
     @Published private(set) var cents: Double = 0
+    @Published private(set) var visualCents: Double = 0
+    @Published private(set) var isHeld = false
+    @Published private(set) var inTune = false
+    @Published private(set) var successCount = 0
+    private var feedback = TuningFeedback()
+    private var visualTime: Double = 0
     @Published private(set) var level = 0.0
     @Published var error: String?
     @Published var permissionDenied = false
     private let audio = AudioDriver()
     private var generation = UUID()
-    private var lastGood = Date.distantPast
+    private var lastGood = -Double.infinity
     private var recent: [Double] = []
     private var observers: [NSObjectProtocol] = []
     private var resumeListening = false
     private var appeared = false
     private(set) var demo = false
     private var signalFixture = false
+    private var feedbackFixture = false
     private var fixtureTask: Task<Void, Never>?
 
     init() {
@@ -151,6 +170,7 @@ private final class AudioDriver {
         if args.contains("--reset") {
             instrument = .guitar; tuningID = "standard"; reference = 440
             UserDefaults.standard.set(instrument.rawValue, forKey: "instrument")
+            UserDefaults.standard.removeObject(forKey: "show-cents")
             for value in Instrument.allCases { UserDefaults.standard.removeObject(forKey: "tuning-\(value.rawValue)") }
         }
         if args.contains("--preview") {
@@ -163,7 +183,9 @@ private final class AudioDriver {
         }
         if args.contains("--silent") { demo = true; clearReading() }
         if args.contains("--denied") { demo = true; denied() }
-        if args.contains("--signal-test") { demo = true; signalFixture = true; clearReading() }
+        if args.contains("--signal-test") || args.contains("--feedback-test") {
+            demo = true; signalFixture = true; feedbackFixture = args.contains("--feedback-test"); clearReading()
+        }
         #endif
     }
     deinit { observers.forEach { NotificationCenter.default.removeObserver($0) } }
@@ -194,7 +216,9 @@ private final class AudioDriver {
     var status: String {
         if tone { return "REFERENCE TONE" }
         guard frequency != nil else { return "PLAY A NOTE" }
-        if abs(cents) <= 3 { return "IN TUNE" }
+        if isHeld { return "LAST READING" }
+        if inTune { return "IN TUNE" }
+        if abs(cents) <= 3 { return "SETTLING" }
         return cents < 0 ? "FLAT" : "SHARP"
     }
     var inputStatus: String {
@@ -206,6 +230,7 @@ private final class AudioDriver {
         return listening ? "LISTENING" : "PAUSED"
     }
     func selectInstrument(_ value: Instrument) {
+        feedback.reset(); inTune = false; isHeld = false
         lockedIndex = nil; lockedPitch = nil; selectedIndex = nil; note = nil
         instrument = value
         tuningID = UserDefaults.standard.string(forKey: "tuning-\(value.rawValue)") ?? value.tunings.first?.id ?? ""
@@ -214,18 +239,21 @@ private final class AudioDriver {
         recalculate()
     }
     func selectTuning(_ value: Tuning) {
+        feedback.reset(); inTune = false; isHeld = false
         guard availableTunings.contains(value) else { return }
         tuningID = value.id; lockedIndex = nil; selectedIndex = nil; note = nil
         UserDefaults.standard.set(value.id, forKey: "tuning-\(instrument.rawValue)")
         recalculate()
     }
     func selectString(_ index: Int) {
+        feedback.reset(); inTune = false
         guard notes.indices.contains(index) else { return }
         lockedIndex = lockedIndex == index ? nil : index
         recalculate()
     }
-    func automatic() { lockedIndex = nil; lockedPitch = nil; recalculate() }
+    func automatic() { feedback.reset(); inTune = false; lockedIndex = nil; lockedPitch = nil; recalculate() }
     func holdPitch() {
+        feedback.reset(); inTune = false
         guard instrument == .chromatic else { return }
         lockedPitch = lockedPitch == nil ? note : nil
         recalculate()
@@ -244,15 +272,22 @@ private final class AudioDriver {
     /// It never plays sound, requests microphone access, or ships in Release.
     private func runSignalFixture() {
         let pipeline = AnalysisPipeline(), token = generation
+        let feedbackScenario = feedbackFixture
         fixtureTask = Task { [weak self] in
             let rate = 48000.0, count = 2048
             let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1)!
             let hz = 110.0 * pow(2, -8.0 / 1200)
-            for frame in 0..<200 {
+            for frame in 0..<(feedbackScenario ? 490 : 250) {
                 guard !Task.isCancelled else { return }
                 let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count))!
                 buffer.frameLength = AVAudioFrameCount(count)
-                Self.fillFixture(buffer, frame: frame, frequency: hz)
+                if feedbackScenario {
+                    let value = frame < 320 ? 110.0 : PitchMath.frequency(50)
+                    let gain: Double = frame < 160 ? 1 : frame < 280 ? 0.006 : frame < 320 ? 0 : frame < 390 ? 1 : 0
+                    Self.fillFixture(buffer, frame: frame, frequency: value, gain: gain)
+                } else {
+                    Self.fillFixture(buffer, frame: frame, frequency: hz, gain: frame < 140 ? 1 : 0)
+                }
                 pipeline.submit(buffer, at: AVAudioTime(sampleTime: AVAudioFramePosition(frame * count), atRate: rate)) { [weak self] reading, rms in
                     Task { @MainActor [weak self] in
                         guard let self, self.generation == token else { return }
@@ -263,7 +298,7 @@ private final class AudioDriver {
             }
         }
     }
-    private static func fillFixture(_ buffer: AVAudioPCMBuffer, frame: Int, frequency: Double) {
+    private static func fillFixture(_ buffer: AVAudioPCMBuffer, frame: Int, frequency: Double, gain: Double) {
         let count = Int(buffer.frameLength)
         for i in 0..<count {
             let time = Double(frame * count + i) / 48000.0
@@ -271,7 +306,7 @@ private final class AudioDriver {
             let fundamental = 0.15 * sin(phase)
             let second = 0.25 * sin(phase * 2.0)
             let third = 0.1 * sin(phase * 3.0)
-            buffer.floatChannelData![0][i] = frame < 140 ? Float(fundamental + second + third) : 0
+            buffer.floatChannelData![0][i] = Float((fundamental + second + third) * gain)
         }
     }
     #endif
@@ -318,17 +353,38 @@ private final class AudioDriver {
     }
     private func receive(_ reading: PitchReading?, rms: Double) {
         level = min(1, max(0, (20 * log10(max(rms, 0.00001)) + 60) / 50))
+        let now = ProcessInfo.processInfo.systemUptime
         guard let reading else {
-            if Date().timeIntervalSince(lastGood) > 0.3 { clearReading() }
+            feedback.gap()
+            switch ReadingAge.state(elapsed: now - lastGood) {
+            case .expired: clearReading()
+            case .held: if frequency != nil { isHeld = true }
+            case .live: break
+            }
             return
         }
-        lastGood = Date()
+        let returning = isHeld
+        if now - lastGood > 0.2 { recent.removeAll() }
+        lastGood = now; isHeld = false
         if let previous = recent.last, abs(1200 * log2(reading.frequency / previous)) > 70 { recent.removeAll() }
         recent.append(reading.frequency)
         if recent.count > 3 { recent.removeFirst() }
+        let previousNote = note
         frequency = recent.sorted()[recent.count / 2]
         recalculate()
+        if previousNote != note || returning { visualCents = cents }
+        else {
+            let alpha = 1 - exp(-max(0, now - visualTime) / 0.09)
+            visualCents += alpha * (cents - visualCents)
+        }
+        visualTime = now
+        if let note {
+            let rewarded = feedback.update(cents: cents, target: note, now: now)
+            inTune = feedback.inTune
+            if rewarded { successCount += 1 }
+        }
     }
+
     private func recalculate() {
         if let lockedIndex { selectedIndex = lockedIndex }
         guard let frequency else { note = nil; cents = 0; return }
@@ -336,9 +392,11 @@ private final class AudioDriver {
                                 locked: lockedPitch ?? lockedIndex.map { notes[$0] }, previous: note)
         selectedIndex = lockedIndex ?? notes.firstIndex(of: note!)
         cents = PitchMath.cents(frequency, target: note!, reference: reference)
+        if demo && !signalFixture { visualCents = cents; inTune = abs(cents) <= 3 }
     }
     private func clearReading() {
-        frequency = nil; note = nil; cents = 0; recent.removeAll()
+        frequency = nil; note = nil; cents = 0; visualCents = 0; recent.removeAll()
+        isHeld = false; inTune = false; feedback.reset()
         selectedIndex = lockedIndex
     }
     func stop() {

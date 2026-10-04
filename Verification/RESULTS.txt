@@ -1,3 +1,37 @@
+FEEDBACK / SUSTAIN UPDATE — 2026-10-03
+
+Green arc, string and checkmark after 250 ms within ±3 cents; exits green beyond
+±5 cents. Reward cooldown and rearming prevent repeated haptics near the boundary.
+Cents hidden by default, optional persisted setting. Underlying pitch precision
+is unchanged. Marker uses a 90 ms exponential smoother for presentation only.
+
+Previous early clearing was explicit: 0.3 seconds without a valid reading.
+New behavior: periodic weak tails can continue at RMS >= 0.0008 only while
+following an established pitch within 45 cents. Initial acquisition remains
+0.003 RMS. Gaps >0.2 s show a dim last reading; 3 s clears it. Never fabricate 0.
+
+Validation: 2,070 synthesized signals plus temporal success/hysteresis/reward,
+quiet-tone threshold, gap and expiry assertions PASS. Ten UI workflows exercised:
+nine passed in the full run; the old silence test timeout did not allow the new
+three-second hold. With that expectation updated, both the old PCM/silence flow
+and the new success/weak-tail/hold/new-string/expiry flow passed on final source.
+Optional cents persistence and actual microphone lifecycle passed in the full run.
+Haptic delivery itself requires a physical-device feel check; simulator validates
+only success qualification and rendering. New screenshots: in-tune.png and
+last-reading.png use actual PCM fixtures (footer TEST INPUT), not a microphone.
+
+References informing interaction, not claims of equal accuracy:
+TonalEnergy green smile / sustained in-tune reward:
+https://www.tonalenergy.com/tet-user-guide-ios
+Tunable numeric cents as one presentation choice:
+https://tunableapp.com/guide/documentation/tuner/
+Peterson original StroboClip SUS display hold (approximately 3 seconds):
+https://www.petersontuners.com/products/stroboclip/
+Peterson strobe visual tuning interface:
+https://www.petersontuners.com/media/pdf/StroboStomp_HD_Manual_v1.1_EN.pdf
+
+EARLIER UPDATES
+
 LATEST UPDATE — 2026-10-03
 
 Implemented 8 instrument modes plus Chromatic; 52 built-in tuning presets.

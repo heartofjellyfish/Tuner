@@ -3,5 +3,5 @@ harmonic: 414 cases, 0 misses; median 0.00025 ct, p95 0.00762 ct, max 0.02088 ct
 weak-fundamental: 414 cases, 0 misses; median 0.00021 ct, p95 0.00962 ct, max 0.02618 ct
 decay: 414 cases, 0 misses; median 0.00187 ct, p95 0.07392 ct, max 0.44097 ct
 noise-30dB: 414 cases, 0 misses; median 0.00715 ct, p95 0.19481 ct, max 0.49956 ct
-2070 signal cases in 4.87 seconds. Failures: 0
+2070 signal cases in 4.66 seconds. Failures: 0
 Scope: deterministic synthetic monophonic signals, 27–1421 Hz, 8192 samples. Not a microphone or competitor accuracy measurement.
