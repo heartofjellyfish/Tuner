@@ -15,6 +15,12 @@ final class TunerUITests: XCTestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
+    func testNoiseFloorStaysQuiet() {
+        launch(["--noise-floor"])
+        XCTAssertEqual(app.descendants(matching: .any)["inputStatus"].value as? String, "0")
+        XCTAssertEqual(app.otherElements["pitchDisplay"].label, "Guitar tuner")
+        screenshot("noise-floor-flat")
+    }
     func testWeakInputActivityWithoutPitch() {
         launch(["--weak-input"])
         let meter = app.descendants(matching: .any)["inputStatus"]

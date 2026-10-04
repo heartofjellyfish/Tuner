@@ -54,3 +54,10 @@ Weak-input sensitivity follow-up, 2026-10-04:
 - No random/clock-driven animation; silence and pause clear all bars; pitch thresholds unchanged.
 - Weak input and pause/reference-tone tests passed. Repeated weak-input test at 0.1x previous fixture amplitude passed, with activity and no acquired pitch followed by silence.
 - Visually inspected sensitive-input.png. Signed Release build passed.
+
+Correct exaggerated quiet-room activity, 2026-10-04:
+- Removed within-buffer relative dB boost and the -110 dBFS visual floor.
+- Bars now use only a fixed absolute -85 to -15 dBFS curve, attenuating quiet input with exponent 1.3, plus attack/release smoothing.
+- Noise-floor PCM test: no visual level or false pitch. Weak-input PCM test: small positive level, no pitch, then zero after silence.
+- Pause/reference-tone test initially missed a Settings tap after app activation; passed when rerun alone.
+- Signed Release build passed. Real-room perception still depends on microphone input; no fabricated/random idle motion.

@@ -193,7 +193,7 @@ private final class AudioDriver {
         }
         if args.contains("--silent") { demo = true; clearReading() }
         if args.contains("--denied") { demo = true; denied() }
-        if args.contains("--signal-test") || args.contains("--feedback-test") || args.contains("--weak-input") {
+        if args.contains("--signal-test") || args.contains("--feedback-test") || args.contains("--weak-input") || args.contains("--noise-floor") {
             demo = true; signalFixture = true; feedbackFixture = args.contains("--feedback-test"); clearReading()
         }
         #endif
@@ -286,6 +286,7 @@ private final class AudioDriver {
         let pipeline = AnalysisPipeline(), token = generation
         let feedbackScenario = feedbackFixture
         let weakInput = ProcessInfo.processInfo.arguments.contains("--weak-input")
+        let noiseFloor = ProcessInfo.processInfo.arguments.contains("--noise-floor")
         fixtureTask = Task { [weak self] in
             let rate = 48000.0, count = 2048
             let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1)!
@@ -299,7 +300,7 @@ private final class AudioDriver {
                     let gain: Double = frame < 160 ? 1 : frame < 280 ? 0.006 : frame < 320 ? 0 : frame < 390 ? 1 : 0
                     Self.fillFixture(buffer, frame: frame, frequency: value, gain: gain)
                 } else {
-                    Self.fillFixture(buffer, frame: frame, frequency: hz, gain: frame < 140 ? (weakInput ? 0.00008 : 1) : 0)
+                    Self.fillFixture(buffer, frame: frame, frequency: hz, gain: frame < 140 ? (noiseFloor ? 0.00008 : weakInput ? 0.0008 : 1) : 0)
                 }
                 pipeline.submit(buffer, at: AVAudioTime(sampleTime: AVAudioFramePosition(frame * count), atRate: rate)) { [weak self] reading, rms, envelope in
                     Task { @MainActor [weak self] in
@@ -365,17 +366,20 @@ private final class AudioDriver {
         })
     }
     private func receive(_ reading: PitchReading?, rms: Double, envelope: [Double]) {
-        // Show quiet room input independently of the stricter pitch-acquisition gate.
-        let target = rms.isFinite && rms > 0 ? min(1, max(0, (20 * log10(rms) + 110) / 85)) : 0
-        level += (target - level) * (target > level ? 0.85 : 0.55)
+        // Absolute input level only: quiet noise must remain visually quiet.
+        func magnitude(_ amplitude: Double) -> Double {
+            guard amplitude.isFinite, amplitude > 0 else { return 0 }
+            let normalized = min(1, max(0, (20 * log10(amplitude) + 85) / 70))
+            return pow(normalized, 1.3)
+        }
+        let target = magnitude(rms)
+        level += (target - level) * (target > level ? 0.35 : 0.18)
         if level < 0.002 { level = 0 }
-        let meanDB = 20 * log10(max(rms, 0.0000001))
-        inputEnvelope = envelope.map { amplitude in
-            guard amplitude.isFinite, amplitude > 0.000003 else { return 0 }
-            let db = 20 * log10(amplitude)
-            let base = pow(min(1, max(0, (db + 110) / 85)), 0.65)
-            // Enlarge genuine within-buffer variations without inventing idle motion.
-            return min(1, max(0, base + (db - meanDB) * 0.10))
+        inputEnvelope = envelope.enumerated().map { index, amplitude in
+            let target = magnitude(amplitude)
+            let previous = inputEnvelope.indices.contains(index) ? inputEnvelope[index] : 0
+            let value = previous + (target - previous) * (target > previous ? 0.35 : 0.18)
+            return value < 0.002 ? 0 : value
         }
         let now = ProcessInfo.processInfo.systemUptime
         guard let reading else {
