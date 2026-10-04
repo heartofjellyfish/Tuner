@@ -25,3 +25,10 @@ Guitar-first idle follow-up, 2026-10-04:
 - 3/3 simulator tests passed: silence/permissions, PCM acquisition-to-silence,
   success/tail/next-string. Visually inspected guitar-first-screen.png.
 - Signed Release build passed.
+
+First-screen simplification, 2026-10-04:
+- Concert A calibration moved into Settings with a nested sheet.
+- Removed footer, repeated brand heading, and preview status text; compact status dot retained.
+- AUTO release control appears only while a string is locked.
+- Verified instrument/tuning/lock test; calibration bounds/persistence and chromatic calibration tests passed after updating nested-sheet test navigation.
+- Inspected iPhone 16e and SE idle screenshots. Signed Release build passed after retrying disk exhaustion.

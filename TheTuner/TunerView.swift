@@ -19,23 +19,23 @@ struct TunerView: View {
                 VStack(spacing: 10) {
                     header
                     VStack(spacing: 0) {
-                        selectors.padding(.bottom, 8)
                         meter
                         if model.instrument == .chromatic { chromaticDetails }
                         else {
-                            Button { model.automatic() } label: {
-                                HStack(spacing: 7) {
-                                    if model.lockedIndex != nil { Image(systemName: "lock.fill").font(.system(size: 9)) }
-                                    Text(model.lockedIndex == nil ? "AUTO" : "\(model.notes.count - model.lockedIndex!)").technical(9)
-                                }.frame(minWidth: 100, minHeight: 44).contentShape(Rectangle())
-                            }.buttonStyle(.plain).accessibilityIdentifier("autoString")
-                                .accessibilityLabel(model.lockedIndex == nil ? "Automatic string detection" : "Unlock string, return to automatic")
+                            if model.lockedIndex != nil {
+                                Button { model.automatic() } label: {
+                                    Label("AUTO", systemImage: "lock.open").technical(9)
+                                        .frame(minWidth: 100, minHeight: 44).contentShape(Rectangle())
+                                }.buttonStyle(.plain).accessibilityIdentifier("autoString")
+                                    .accessibilityLabel("Unlock string, return to automatic")
+                            } else {
+                                Color.clear.frame(height: 44).accessibilityHidden(true)
+                            }
                             Headstock(instrument: model.instrument, notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, inTune: model.inTune, select: model.selectString)
-                                .frame(height: max(model.notes.count > 6 ? 260 : 170, min(340, geo.size.height - 518)))
+                                .frame(height: max(model.notes.count > 6 ? 260 : 170, min(340, geo.size.height - 425)))
                                 .padding(.horizontal, 8).opacity(model.isHeld ? 0.55 : 1)
                         }
                     }
-                    footer
                 }
                 .frame(maxWidth: 480)
                 .padding(.horizontal, 26).padding(.top, 8).padding(.bottom, 8)
@@ -52,7 +52,6 @@ struct TunerView: View {
             else if new == .active { model.foreground() }
         }
         .sheet(isPresented: $settings) { settingsSheet }
-        .sheet(isPresented: $calibration) { calibrationSheet }
         .sheet(isPresented: $instruments) { instrumentPanel }
         .sheet(isPresented: $tunings) { tuningPanel }
         .sheet(isPresented: Binding(get: { model.error != nil && !settings && !calibration && !instruments && !tunings }, set: { if !$0 { model.error = nil } })) {
@@ -67,9 +66,12 @@ struct TunerView: View {
         .environment(\.tunerTheme, theme)
     }
     private var header: some View {
-        HStack {
-            Text("CLEAN TUNER").technical(14, spacing: 3.2)
+        HStack(alignment: .top) {
+            selectors
             Spacer()
+            Circle().fill(model.listening || model.demo || model.tone ? style.orange : style.muted)
+                .frame(width: 5, height: 5).padding(.top, 20)
+                .accessibilityLabel(model.inputStatus).accessibilityIdentifier("inputStatus")
             Button { settings = true } label: {
                 Image(systemName: "gearshape").font(.system(size: 23, weight: .regular)).frame(width: 44, height: 44).contentShape(Rectangle())
             }.buttonStyle(.plain).accessibilityLabel("Settings").accessibilityIdentifier("settings")
@@ -182,20 +184,6 @@ struct TunerView: View {
                 .accessibilityLabel(model.lockedPitch == nil ? "Hold current pitch" : "Release held pitch")
         }.frame(maxWidth: .infinity, minHeight: 220)
     }
-    private var footer: some View {
-        HStack(spacing: 10) {
-            StatusLight(on: model.listening || model.tone || model.demo)
-                .accessibilityHidden(false).accessibilityLabel(model.inputStatus).accessibilityIdentifier("inputStatus")
-            if model.demo || model.permissionDenied || (!model.listening && !model.tone) {
-                Text(model.inputStatus).technical(9, spacing: 1).lineLimit(1).minimumScaleFactor(0.7)
-            }
-            Spacer(minLength: 4)
-            Button { calibration = true } label: {
-                Text("A4  \(Int(model.reference)) Hz").technical(10, spacing: 1.5).frame(minHeight: 44).contentShape(Rectangle())
-            }.buttonStyle(.plain).accessibilityIdentifier("reference")
-                .accessibilityLabel("Concert A, \(Int(model.reference)) hertz")
-        }.padding(.top, 8).overlay(alignment: .top) { Rectangle().fill(style.silver).frame(height: 0.5) }
-    }
     private var settingsSheet: some View {
         CleanPanel(title: "Settings") {
             if let error = model.error {
@@ -209,6 +197,8 @@ struct TunerView: View {
             }.accessibilityIdentifier("microphoneToggle")
             CleanRow(title: model.tone ? "Stop reference tone" : "Play A4 reference tone", symbol: model.tone ? "stop" : "speaker.wave.2") { model.toggleTone() }
                 .accessibilityIdentifier("referenceTone")
+            CleanRow(title: "Concert A", detail: "A4 · \(Int(model.reference)) Hz", symbol: "tuningfork") { calibration = true }
+                .accessibilityIdentifier("reference").accessibilityLabel("Concert A, \(Int(model.reference)) hertz")
             CleanRow(title: "Show cents", detail: showCents ? "On" : "Off", selected: showCents, symbol: "number") { showCents.toggle() }
                 .accessibilityIdentifier("showCents")
             Text("COLOR").technical(10).foregroundStyle(style.muted).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 12)
@@ -231,6 +221,7 @@ struct TunerView: View {
                 .font(.system(size: 13)).foregroundStyle(style.muted).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
             Text("Audio stays on your device.").font(.system(size: 12)).foregroundStyle(style.muted)
         }.transaction { $0.animation = nil; $0.disablesAnimations = true }.presentationDetents([.large])
+            .sheet(isPresented: $calibration) { calibrationSheet }
     }
     private var calibrationSheet: some View {
         CleanPanel(title: "Concert A") {
