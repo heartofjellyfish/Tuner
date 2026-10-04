@@ -192,6 +192,9 @@ struct TunerView: View {
                         Text(PitchMath.name(note)).font(.system(size: 72, weight: .medium)).tracking(-2)
                         Text("\(PitchMath.octave(note))").font(.system(size: 28, weight: .medium))
                     }.lineLimit(1).minimumScaleFactor(0.6)
+                        .scaleEffect(!reduceMotion && model.inTune && !model.isHeld ? 1.18 : 1)
+                        .animation(reduceMotion ? nil : .easeOut(duration: model.inTune && !model.isHeld ? 1.2 : 0.2),
+                                   value: model.inTune && !model.isHeld)
                         .foregroundStyle(model.inTune && !model.isHeld ? style.tunedInk : style.ink)
                     if model.inTune && !model.isHeld {
                         Circle().fill(style.tuned).frame(width: 9, height: 9)
