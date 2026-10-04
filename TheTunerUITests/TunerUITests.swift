@@ -15,6 +15,18 @@ final class TunerUITests: XCTestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
+    func testWeakInputActivityWithoutPitch() {
+        launch(["--weak-input"])
+        let meter = app.descendants(matching: .any)["inputStatus"]
+        expectation(for: NSPredicate { _, _ in Int(meter.value as? String ?? "0") ?? 0 > 0 }, evaluatedWith: meter)
+        waitForExpectations(timeout: 5)
+        XCTAssertEqual(app.otherElements["pitchDisplay"].label, "Guitar tuner")
+        screenshot("weak-input-no-pitch")
+        expectation(for: NSPredicate(format: "value == %@", "0"), evaluatedWith: meter)
+        waitForExpectations(timeout: 12)
+        XCTAssertEqual(app.otherElements["pitchDisplay"].label, "Guitar tuner")
+        screenshot("input-silent")
+    }
     func testThemeSelectionAndPersistence() {
         launch()
         app.buttons["settings"].tap()
@@ -346,8 +358,10 @@ final class TunerUITests: XCTestCase {
         XCTAssertEqual(app.buttons["microphoneToggle"].label, "Resume microphone")
         app.buttons["Done"].tap()
         XCTAssertEqual(status.label, "PAUSED")
+        XCTAssertEqual(status.value as? String, "0")
         XCUIDevice.shared.press(.home); app.activate()
         XCTAssertEqual(status.label, "PAUSED")
+        XCTAssertEqual(status.value as? String, "0")
         app.buttons["settings"].tap(); app.buttons["microphoneToggle"].tap()
         expectation(for: NSPredicate(format: "label == %@", "Pause microphone"), evaluatedWith: app.buttons["microphoneToggle"])
         waitForExpectations(timeout: 10)

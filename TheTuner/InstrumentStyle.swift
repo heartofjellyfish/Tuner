@@ -214,3 +214,32 @@ struct Headstock: View {
         }.foregroundStyle(style.ink).fixedSize()
     }
 }
+
+/// Recent input energy, not an artificial idle animation or a pitch-confidence meter.
+struct InputActivity: View {
+    @Environment(\.tunerTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let level: Double
+    let enabled: Bool
+    let status: String
+    @State private var history = Array(repeating: 0.0, count: 9)
+    var body: some View {
+        HStack(alignment: .center, spacing: 3) {
+            ForEach(history.indices, id: \.self) { index in
+                Capsule().fill(theme.style.orange.opacity(enabled ? 0.45 + history[index] * 0.55 : 0.25))
+                    .frame(width: 2, height: 3 + (enabled ? history[index] : 0) * 19)
+            }
+        }.frame(width: 42, height: 24)
+            .animation(reduceMotion ? nil : .linear(duration: 0.08), value: history)
+            .onChange(of: level) { _, value in
+                if !enabled || value == 0 { history = Array(repeating: 0, count: 9) }
+                else { history.removeFirst(); history.append(value) }
+            }
+            .onChange(of: enabled) { _, value in
+                if !value { history = Array(repeating: 0, count: 9) }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityIdentifier("inputStatus").accessibilityLabel(status)
+            .accessibilityValue(String(Int((enabled ? level : 0) * 100)))
+    }
+}

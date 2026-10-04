@@ -69,9 +69,8 @@ struct TunerView: View {
         HStack(alignment: .top) {
             selectors
             Spacer()
-            Circle().fill(model.listening || model.demo || model.tone ? style.orange : style.muted)
-                .frame(width: 5, height: 5).padding(.top, 20)
-                .accessibilityLabel(model.inputStatus).accessibilityIdentifier("inputStatus")
+            InputActivity(level: model.level, enabled: (model.listening || model.demo) && !model.permissionDenied && !model.tone, status: model.inputStatus)
+                .padding(.top, 10)
             Button { settings = true } label: {
                 Image(systemName: "gearshape").font(.system(size: 23, weight: .regular)).frame(width: 44, height: 44).contentShape(Rectangle())
             }.buttonStyle(.plain).accessibilityLabel("Settings").accessibilityIdentifier("settings")
@@ -149,9 +148,6 @@ struct TunerView: View {
                         Image(systemName: model.inTune ? "checkmark.circle" : abs(model.cents) <= 3 ? "circle.dotted" : model.cents < 0 ? "arrow.up" : "arrow.down")
                             .font(.system(size: 26, weight: .light))
                             .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? 0 : model.successCount)
-                    }
-                    if model.frequency == nil {
-                        Image(systemName: "waveform").font(.system(size: 25, weight: .light))
                     }
                     Text(model.frequency == nil ? idlePrompt : model.inTune ? "In tune" : abs(model.cents) <= 3 ? "Settling" : model.cents < 0 ? "Tune up" : "Tune down")
                         .font(.system(size: 18, weight: .medium)).fixedSize(horizontal: false, vertical: true)

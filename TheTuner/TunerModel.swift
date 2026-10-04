@@ -187,7 +187,7 @@ private final class AudioDriver {
         }
         if args.contains("--silent") { demo = true; clearReading() }
         if args.contains("--denied") { demo = true; denied() }
-        if args.contains("--signal-test") || args.contains("--feedback-test") {
+        if args.contains("--signal-test") || args.contains("--feedback-test") || args.contains("--weak-input") {
             demo = true; signalFixture = true; feedbackFixture = args.contains("--feedback-test"); clearReading()
         }
         #endif
@@ -279,6 +279,7 @@ private final class AudioDriver {
     private func runSignalFixture() {
         let pipeline = AnalysisPipeline(), token = generation
         let feedbackScenario = feedbackFixture
+        let weakInput = ProcessInfo.processInfo.arguments.contains("--weak-input")
         fixtureTask = Task { [weak self] in
             let rate = 48000.0, count = 2048
             let format = AVAudioFormat(standardFormatWithSampleRate: rate, channels: 1)!
@@ -292,7 +293,7 @@ private final class AudioDriver {
                     let gain: Double = frame < 160 ? 1 : frame < 280 ? 0.006 : frame < 320 ? 0 : frame < 390 ? 1 : 0
                     Self.fillFixture(buffer, frame: frame, frequency: value, gain: gain)
                 } else {
-                    Self.fillFixture(buffer, frame: frame, frequency: hz, gain: frame < 140 ? 1 : 0)
+                    Self.fillFixture(buffer, frame: frame, frequency: hz, gain: frame < 140 ? (weakInput ? 0.0008 : 1) : 0)
                 }
                 pipeline.submit(buffer, at: AVAudioTime(sampleTime: AVAudioFramePosition(frame * count), atRate: rate)) { [weak self] reading, rms in
                     Task { @MainActor [weak self] in
@@ -358,7 +359,10 @@ private final class AudioDriver {
         })
     }
     private func receive(_ reading: PitchReading?, rms: Double) {
-        level = min(1, max(0, (20 * log10(max(rms, 0.00001)) + 60) / 50))
+        // Show quiet room input independently of the stricter pitch-acquisition gate.
+        let target = rms.isFinite && rms > 0 ? min(1, max(0, (20 * log10(rms) + 90) / 75)) : 0
+        level += (target - level) * (target > level ? 0.55 : 0.18)
+        if level < 0.002 { level = 0 }
         let now = ProcessInfo.processInfo.systemUptime
         guard let reading else {
             feedback.gap()

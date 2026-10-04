@@ -32,3 +32,12 @@ First-screen simplification, 2026-10-04:
 - AUTO release control appears only while a string is locked.
 - Verified instrument/tuning/lock test; calibration bounds/persistence and chromatic calibration tests passed after updating nested-sheet test navigation.
 - Inspected iPhone 16e and SE idle screenshots. Signed Release build passed after retrying disk exhaustion.
+
+Live microphone activity, 2026-10-04:
+- Replaced static header dot with a compact nine-sample input-energy history.
+- Real RMS drives logarithmic -90 to -15 dBFS display mapping with fast attack and slower decay.
+- Pitch acquisition thresholds unchanged. No autonomous/random animation.
+- Silent/stopped/denied/tone states clear the activity; Reduce Motion disables interpolation.
+- Weak PCM input test passed: positive activity without any acquired note, then zero after silence.
+- Pause/reference-tone lifecycle test passed, including zero activity while paused.
+- Signed Release build passed; visually inspected weak-input screenshot (DEBUG PCM fixture).
