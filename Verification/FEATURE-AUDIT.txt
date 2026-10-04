@@ -1,0 +1,267 @@
+CLEAN TUNER · 逐项功能审查
+2026-10-03 · 本地代码、模拟器、合成 PCM、公开资料
+
+结论口径
+“通过”只指下述具体测试。模拟器和合成信号不能证明真实乐器、手机麦克风、
+嘈杂房间里的准确率，也不能据此宣称达到 TonalEnergy / Peterson 的精度。
+竞品做法是设计证据，不是强制标准；本产品的时间、颜色、容差仍是产品选择。
+
+本轮修复
+• 25 Hz 边界的周期搜索空间不足，导致漏检。
+• 1500 Hz 附近短周期插值与过宽的长周期搜索会选错谐波。
+  补足边界，改进分数周期损失估计，限制精修范围，避免跨到相邻完整周期。
+• 高采样率下固定 8192 点不足以涵盖低音；窗口现在至少覆盖 180 ms。
+• 静音时锁弦再切 AUTO 仍可能保留高亮；现在释放时清除选择。
+• 手动切换目标／校准后，指针可能仍显示旧目标的平滑值；现在立即重算。
+• 已保留的旧读数在换乐器／预设后可能被当作实时输入；现在清除旧读数。
+• 播放再停止参考音会擅自打开已暂停的麦克风；现在恢复播放前的状态。
+• 音频中断和进入后台叠加时，监听恢复意图会被覆盖；现在单独保存意图。
+• 编辑器与校准的加减按钮补足整块 44 pt 点击范围，校准边界按钮禁用。
+• 同一个音区内加入橙→金的渐近颜色、收拢变亮的光晕。绿色只表示稳定调准。
+• 成功文字改为更深的绿色；“提高对比度”启用时，指针增加深色边缘。
+
+验证汇总
+DSP：2,070 组主信号回归通过。合成单音 27–1421 Hz，44.1/48 kHz，
+正弦、泛音、弱基音、衰减、30 dB 噪声。最差误差 0.49956 cent，0 漏检。
+边界／数据／状态：2,382 条断言通过，见 feature-audit-tests.txt。增加 8–192 kHz 的 25–1500 Hz
+边界与不同起始相位，全部预设、校准、自定义、非法输入、渐近颜色、恢复意图。
+UI：iPhone 16e 上 16 条不同用例均成功完成（分完整运行与定向补跑）。
+完整运行先为 14/16，滚动辅助修正后 4/4 定向补跑通过，覆盖两项失败及最终改动。
+iPhone SE：52 项逐个选择并核对标题、锁定／释放、切换记忆和重启全部通过；
+Chromatic hold/校准及自定义边界另两项通过。
+每个预设的目标音／八度列于 tuning-catalogue.tsv（物理弦序，不按频率排序）。
+
+逐项结论：目的 → 测试 → 决策／依据
+
+01. 麦克风启动、暂停与恢复
+目的：打开就能调音；用户暂停后，后台返回或参考音不应擅自重新采集。
+测试：真实模拟器音频引擎启动、暂停、恢复、Home 后返回；参考音前后状态。
+结论：通过已执行流程，修复参考音恢复意图。后台停止音频并解除常亮。
+依据：Apple Audio Session 生命周期和 interruption 指引 [A1,A2]。
+
+02. 麦克风拒绝权限／恢复
+目的：拒绝后解释原因并提供系统设置入口，不能显示伪造的监听状态。
+测试：原有拒绝 fixture 的自定义弹层、Dismiss；新增真实系统权限拒绝／允许流程。
+结论：通过：实际 iOS 授权弹窗拒绝→MICROPHONE OFF→重置授权后允许→LISTENING。
+这是操作系统权限流程；设置 App 内的开关跳转未纳入自动点击。
+依据：iOS 的系统授权必须由系统界面处理；应用只负责解释和恢复入口 [A3]。
+
+03. Chromatic 音名与八度
+目的：识别实际音高，明确当前参考音；八度不能混淆。
+测试：C4/MIDI60、全音域换算、相邻音边界，以及 Chromatic hold/release UI。
+结论：通过。中央音为当前目标，邻音随目标移动；左低右高，位置表示音分偏差。
+这是局部音高视窗，不是固定绝对音高的罗盘。[T1,T2,F1]
+
+04. 音区、指针与相邻音
+目的：一个音是一段范围；相邻半音相隔 100 cents。
+测试：±50 ct 区界代码核对，±52/58 ct 的防抖目标选择测试，左右偏差截图。
+结论：通过。只有音区边界分隔，没有在每个音中间再加刻度线。
+自动切音有 6 ct 滞回，因此边缘可以短暂越过分隔，避免反复切音名。
+锁弦的大偏差超过图示范围时用边缘箭头继续表示方向。[T1,T2]
+
+05. 渐近颜色／光晕（本轮新增）
+目的：一眼感知“更接近”，而不用不断读取数值。
+测试：距离函数对正负偏差对称、全范围单调；-40/-12/0/+12 ct UI 截图。
+结论：通过。橙色→浅金、光晕收拢变亮；它只编码距离，不编码另一种方向。
+绿色由独立的稳定调准状态控制，靠近不等于完成。仍保留位置、箭头和文字。
+这是本产品的设计选择；TE/Tunable 的中央绿色提供了状态分离的参考 [T1,T2]。
+
+06. “调准了”的反馈
+目的：让用户知道可以停止调弦，避免瞬间经过中心就报成功。
+测试：±3 ct 持续 250 ms 才成功；超过 ±5 ct 退出；音头、持续音、间断、
+换弦及重新调音的时序断言；真实 PCM→绿色 UI 流程。
+结论：通过逻辑与视觉检查。成功有绿色、勾号、一次动画和触觉请求。
+触觉的真机强弱仍需实际握持确认。±3/±5 ct 是我们的默认容差，不是行业精度标准。
+TE 也把“保持调准”作为奖励，而非只显示更多小数 [T1]。
+
+07. Cents 数字
+目的：普通调弦先知道往哪调、是否完成；精细校准仍可查看数值。
+测试：默认关闭、开启后小字整数、关闭、重启记忆、无输入状态。
+结论：通过。保留 Settings 中的开关。数字显示分辨率不等于测量准确度。
+TE/Tunable 显示 cents，但没有证据要求它必须成为主视觉 [T1,T2]。
+
+08. 延音与最后读数
+目的：弱延音不要突然归零；真的无信号时不能假装仍在测量。
+测试：响亮 A2→弱 A2→无声→D3→无声，走实际 PCM 管线；维持绿色、
+Last reading、新音替换、3 秒后消失全部有断言。
+结论：通过。弱周期信号继续跟踪，丢失 200 ms 后变暗保留，3 秒到期清除。
+保留期显示的是历史值，不合成 0 ct。换乐器／预设时清除历史值。
+Peterson 原版 StroboClip 的 SUS 也使用约 3 秒延长显示 [P1]。
+
+09. 自动选弦
+目的：减少手动操作，但不能让误选目标误导用户。
+测试：所有预设音逐一映射到正确目标，High G 的非升序音高，边界滞回。
+结论：通过确定性测试。严重走音时可能更接近另一根弦，应手动锁目标。
+两根同音弦无法仅靠频率区分；自动模式只选其中一个，手动锁定仍可逐根调。
+这是单麦克风单音频率的可辨识性限制，不应虚构自动识别能力。[F1,F2]
+
+10. 手动锁弦／AUTO
+目的：严重走音或谐波干扰时保持用户指定目标。
+测试：每个预设锁第 1 弦、释放；已有第 6/8 弦测试；核心锁定目标断言。
+结论：通过已执行流程，修复目标切换后的指针平滑状态。
+再次点同一弦或 AUTO 可释放；识别值不能覆盖锁定目标。[F2]
+
+11. Guitar：13 预设
+目的：标准、降调、开放和扩展弦数覆盖常用情况。
+测试：逐项 UI 选择、目标数据/八度/范围、7/8 弦布局和锁定。
+结论：数据通过。Standard、Drop D、DADGAD、Open G/D/E/C
+与 Fender 的调弦关系核对；Double Drop D 按两根 E 各降全音检查；
+半音/全音下降按相同整数半音位移检查。[G1,G2,G3]
+
+12. Ukulele：7 预设
+目的：区分 re-entrant High G、Low G、Baritone，而不是把它当缩小吉他。
+测试：G4-C4-E4-A4 的物理弦序；Low G 的 G3；全部预设与 UI 选择。
+结论：数据通过。D tuning/Low A 相差整音；Baritone 为 D3-G3-B3-E4。
+Low G 等可能需要对应弦组，App 的目标可选不代表任何弦都适合升降到该音。[U1,U2]
+
+13. Bass：8 预设
+目的：低频与 4/5/6 弦明确；不能把 B0/A0 判断高一倍。
+测试：BEADG 的八度单独断言，Drop A 在最低 A4=420 校准时的 26.25 Hz，
+低频合成信号、所有预设 UI。
+结论：数据与合成信号通过，修复检测下边界。无拾音器的实琴低音仍需真机验证。[B1]
+
+14. Violin：5／Viola：3／Cello：4 预设
+目的：弦序/八度正确，开放弦不混为吉他；保留常见 scordatura。
+测试：各音、半音/全音变换、UI、Bach Suite 5 的 CGDG 单独断言。
+结论：数据通过。标准弦序对照 Yamaha；Bach 5 为最高 A 降到 G；
+Calico AEAC♯ 对照实际教学工作坊资料。[S1,S2,S3]
+这些仍是平均律目标；未实现弦乐纯五度、移调记谱或自动颤音适配。
+
+15. Banjo：7 预设
+目的：第五根短弦是高音 drone，不能按低到高排序；Tenor 为四弦。
+测试：g4-D3-G3-B3-D4、Open D 的 f♯4、四/五弦切换与全部预设。
+结论：数据通过，与 Deering 的 Open G/Double C/Sawmill/D/Standard C/
+Tenor/Irish 关系一致；Irish 比 Violin/Mandolin 低八度。[J1,J2]
+
+16. Mandolin：5 预设
+目的：按成对弦组显示，而非假装检测八根弦的和弦。
+测试：四 course、八度 Mandolin、Mandola、全部目标数据与 UI。
+结论：通过功能检查；每对弦应分别拨响调准。图示为简化琴头，不承诺复刻某型号。
+标准 GDAE／Mandola CGDA 的关系也由 Deering 的同调乐器说明交叉核对 [J2]。
+
+17. 自定义创建／命名／音符／八度／弦数
+目的：建立一个可重复使用的“名字＋按物理顺序的目标音列表”。
+测试：创建 D2、保存重启；4/8 根上下限、八度上下限、禁用越界音、取消；
+空白名/33 字/非法音拒绝、合法同音/非升序、JSON 往返测试。
+结论：通过已执行流程。支持 4–8 根、A0–F6、32 字，保留物理顺序。
+自定义入口与 Fender 的模式一致；不要求账户或云端保存 [F2]。
+
+18. 自定义编辑／删除／持久化
+目的：编辑原记录不产生副本；误操作应能在提交前取消。
+测试：重启后读取、改为七弦、删除确认、删除后回到内置默认；取消草稿不改预设。
+结论：通过。删除确认是编辑面板内的操作，数据保存于本地 UserDefaults。
+删除不可撤销，但先点 Delete 再 Confirm delete；只删除当前自定义。[F2]
+
+19. 乐器／预设列表和记忆
+目的：任意一项都可点到；长列表可滚动；每种乐器记住上次预设。
+测试：52 项逐个选择、各乐器重新进入、重启恢复；小屏专项见验证记录。
+结论：iPhone 16e 与 iPhone SE 的 52 项全部选择／锁定／释放通过；
+每乐器预设记忆和重启通过。小屏额外核对每项主界面标题。
+早期自动化把底部部分可见的 row 当成可点击，且尝试的按住拖动误触了预设。
+通过测试录像定位后，改用原生 swipe，并确保行位于可见区域；
+不是移除失败断言。小屏测试还核对选择后主界面标题，避免误选仍被计为通过。
+
+20. A4 校准
+目的：改变目标频率基准，不能篡改测得的输入频率。
+测试：420/460 边界滑动、±按钮禁用、432/440/442 快选、重启、全 MIDI 换算。
+结论：通过。所有目标按 reference × 2^((MIDI−69)/12) 计算。
+420–460 是本版本范围，非全行业范围；不支持巴洛克 A=415。[T1,P1]
+
+21. A4 参考音
+目的：按所选校准值给耳朵一个基准；不要收听自身喇叭后假装调准。
+测试：实际模拟器引擎启停；暂停麦克风→播音→停音仍暂停；监听→播音→停音恢复。
+结论：UI 与状态通过。生成正弦、有 20 ms 淡入；播放时停止测量。
+波形数学与设置更新代码核对，未用校准硬件测量手机喇叭输出。[T1]
+
+22. 来电／切音频设备／进入后台
+目的：中断后只恢复用户原本想做的事；不在后台偷偷录音或重播参考音。
+测试：暂停/后台/前台的实际模拟器流程；中断→后台→中断结束→前台等纯状态序列。
+结论：恢复意图检查通过，修复叠加事件覆盖。真实来电、USB 接口、蓝牙换路
+尚未进行物理设备场景测试，不能标为硬件通过。[A1,A2]
+
+23. 精度、噪声、异常输入
+目的：测量先正确，界面再平滑；显示稳定不能掩饰测量错误。
+测试：主信号 2,070 组、额外边界/相位、短缓冲、DC、NaN、静音、白噪声。
+结论：该合成集通过；噪声/弱基音/衰减有覆盖，未覆盖所有真实音色。
+检测 25–1500 Hz，边界容许 1 cent 数值插值误差；实际采样率来自输入格式。
+YIN 为周期估计的基础，不能从算法名推导整体 App 的实测精度 [D1,A2]。
+
+24. 可读性、触控和简洁性
+目的：少文字、大点击区，颜色之外也能理解动作。
+测试：真实截图、按钮定位与点击；成功文字与白底对比约 5.36:1；
+真实系统 Increase Contrast 已启用、截图检查并恢复默认。
+主要交互有可访问名称和值，Reduce Motion 禁用成功弹跳和保留态过渡。
+结论：基础检查通过。已补 44 pt 加减按钮 hit shape。普通模式橙金色光是辅助提示，
+开启提高对比度时指针有深边；仍需 VoiceOver 人工完整流程及大字号适配专项。
+没有据此次自动化宣称全面无障碍认证。小屏结果见验证记录。[A4]
+
+25. 隐私、离线与诚实状态
+目的：调音不需要账户、网络、录音文件；预览不能冒充实时检测。
+测试：代码搜索无 URLSession/上传/录音落盘，依赖清单无第三方 SDK；
+真实 LISTENING、PAUSED、MICROPHONE OFF 和 DEBUG PREVIEW/TEST INPUT 区分。
+结论：本地 PCM 分析，没有保存声音文件；只保存偏好及自定义调弦。
+这是源码审查，不是运行时流量抓包。Release 不包含调试信号入口。
+
+用户反馈交叉核对
+TE 的 App Store 可见评论中，2018-02-05 的评论提到长音显示跳动、弦乐模式
+难发现；开发者回应建议选择 Voice 模式。2023-12-10 的评论认可可调容差。
+这些是有日期的个体体验，不能当作当前版本普遍缺陷或统计结论。
+对我们的启示：默认少跳动、乐器入口直接可见、成功门限与显示平滑分开；
+但我们的固定容差还不等价于 TE 的多种乐器／技能档位。[R1]
+
+仍需真实设备和乐器的验证
+• 同一声源同时对比 Clean Tuner、TonalEnergy、可信硬件 tuner，记录误差、
+  获得读数的延迟、弱尾音持续时间和八度误判，而不是只比较屏幕的小数位。
+• 吉他低 E、Bass 低 B/Drop A、Ukulele 高/低 G、弓弦颤音、Mandolin 短尾音；
+  安静及有背景噪声，两种手机型号。当前不能宣称这些已经全部弹奏过。
+• 真机触觉、来电、蓝牙／USB 换路、长时间功耗、完整 VoiceOver/大字号。
+这些是发布级质量验证的剩余项，不影响本轮已完成的软件回归事实。
+
+来源（2026-10-03 检索，以下为对应功能的直接来源）
+[T1] TonalEnergy iOS guide — target/bar/cents, mode/range, reference/tone
+https://www.tonalenergy.com/tet-user-guide-ios
+[T2] Tunable tuner guide — direction, cents, green zone and noise/attack guidance
+https://tunableapp.com/guide/documentation/tuner/
+[P1] Peterson original StroboClip — SUS approximately 3 seconds; specification
+https://www.petersontuners.com/products/stroboclip/
+[F1] Fender — chromatic tuner
+https://tune-support.fender.com/hc/en-us/articles/360002051712--What-s-a-chromatic-tuner
+[F2] Fender — custom tuning (also links deletion and Auto/Manual articles)
+https://tune-support.fender.com/hc/en-us/articles/360002075491-How-do-I-save-a-custom-tuning
+[G1] Fender — guitar alternate tunings
+https://www.fender.com/articles/setup/tune-like-a-rock-star
+[G3] Fender — Alternate tuning (including Open E)
+https://www.fender.com/articles/setup/alternate-guitar-tuning
+[G2] Fender — Open C
+https://www.fender.com/articles/setup/open-c-tuning
+[U1] Fender — ukulele physical order and middle C
+https://www.fender.com/articles/setup/how-to-tune-a-ukulele
+[U2] Kala — high/low G, baritone
+https://kalabrand.com/blogs/home/ukulele-tuning-decoded
+[B1] Fender bass owner's manual — 4/5/6 strings
+https://www.fmicassets.com/Damroot/Original/10001/OM_leg_bass_2011_Owner%27s_Manual_For_Fender_Basses_English.pdf
+[S1] Yamaha violin/viola manual
+https://usa.yamaha.com/files/download/other_assets/0/313360/02_violin_E_0702.pdf
+[S2] Netherlands Bach Society — BWV1011 scordatura
+https://www.bachvereniging.nl/en/bwv/bwv-1011
+[S3] Albuquerque Folk Festival 2014 workshop program — Calico AEAC♯
+https://www.abqfolkfest.org/2014_Program.pdf
+[J1] Deering — banjo tunings
+https://www.deeringbanjos.com/en-ca/pages/how-to-tune-a-banjo
+[J2] Deering — Irish tenor octave and standard tenor/viola relationship
+https://www.deeringbanjos.com/blogs/deering-banjos-blog/irish-tenor-banjo-what-is-the-standard
+[A1] Apple — audio interruptions
+https://developer.apple.com/documentation/avfaudio/handling-audio-interruptions
+[A2] Apple QA1631 — preferred vs actual sample rate
+https://developer.apple.com/library/archive/qa/qa1631/_index.html
+[A3] Apple AVAudioApplication — record permission
+https://developer.apple.com/documentation/avfaudio/avaudioapplication/requestrecordpermission(completionhandler:)
+[A4] Apple UI Design Dos and Don'ts — touch/contrast/layout
+https://developer.apple.com/design/tips/
+[D1] de Cheveigné & Kawahara, 2002 — YIN, original paper abstract
+https://pubmed.ncbi.nlm.nih.gov/12002874/
+[R1] TonalEnergy App Store — dated reviews and developer responses
+https://apps.apple.com/us/app/tonalenergy-tuner-metronome/id497716362
+
+设备交付：签名 Release 已安装到用户 iPhone 14 Pro。手机锁屏导致自动启动
+被 iOS 拒绝；解锁后手动打开。此安装不等于真实麦克风精度验证。

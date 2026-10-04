@@ -27,7 +27,11 @@ A credible weak tail continues tracking. After loss, the last result is dimmed
 and labelled Last reading for up to three seconds, then cleared; a new note
 replaces it immediately. The visual marker is smoothed without changing the
 measured pitch or the success qualification.
+Within a note band, orange gradually becomes gold and the glow tightens as
+pitch approaches the center. Only settled success is green. Increase Contrast
+adds a dark marker edge; success text uses a darker green for readability.
 Reference tones and microphone pause/resume are available in Settings.
+Stopping a reference tone restores the prior microphone state.
 
 Verification:
   Scripts/verify.sh
@@ -42,6 +46,9 @@ Debug-only launch arguments for repeatable screenshots/tests:
   --silent                     Silent UI fixture
   --denied                     Microphone-denied UI fixture
   --signal-test                Real PCM analysis fixture followed by silence
+  --feedback-test              Strong/weak tail, held reading, next note, silence
+  --preview --cents -12         Explicit proximity/color screenshot fixture
+  --reset                      Clears preferences AND custom tunings (Debug only)
 
 Limitations:
 Synthetic accuracy is not a guarantee of microphone accuracy. Validate with real
@@ -53,3 +60,6 @@ The earlier simulator CoreAudio startup failure did not reproduce in the October
 recheck: actual microphone start, pause/resume, and background return passed.
 This is not a physical microphone accuracy or TonalEnergy parity measurement.
 See Verification/RESULTS.txt for test scope and historical failures.
+
+See Verification/FEATURE-AUDIT.txt for the feature-by-feature audit, research,
+test evidence, fixes, and outstanding physical-device validation.

@@ -18,11 +18,12 @@ private final class AnalysisPipeline {
             if let expectedFrame, expectedFrame != frame { history.removeAll(keepingCapacity: true); tailFrequency = nil; tailFrame = nil }
             expectedFrame = frame + AVAudioFramePosition(samples.count)
             history.append(contentsOf: samples)
-            if history.count > 8192 { history.removeFirst(history.count - 8192) }
+            let windowSize = max(8192, Int(ceil(rate * 0.18)))
+            if history.count > windowSize { history.removeFirst(history.count - windowSize) }
             let rms = sqrt(samples.reduce(0.0) { $0 + Double($1 * $1) } / Double(max(1, samples.count)))
             let trackingTail = tailFrame.map { Double(frame - $0) / rate < 0.8 } ?? false
             let threshold = trackingTail ? 0.0008 : 0.003
-            var reading = rms >= threshold && history.count >= 8192 ? PitchDetector().detect(history, rate: rate, minimumRMS: threshold) : nil
+            var reading = rms >= threshold && history.count >= windowSize ? PitchDetector().detect(history, rate: rate, minimumRMS: threshold) : nil
             // Weak input can continue an established note, but cannot acquire a new
             // pitch from background noise at the lower sustain threshold.
             if rms < 0.003, let value = reading {
@@ -141,7 +142,7 @@ private final class AudioDriver {
     private var lastGood = -Double.infinity
     private var recent: [Double] = []
     private var observers: [NSObjectProtocol] = []
-    private var resumeListening = false
+    private var resumeState = AudioResumeState()
     private var appeared = false
     private(set) var demo = false
     private var signalFixture = false
@@ -169,6 +170,8 @@ private final class AudioDriver {
         let args = ProcessInfo.processInfo.arguments
         if args.contains("--reset") {
             instrument = .guitar; tuningID = "standard"; reference = 440
+            customTunings = [:]
+            UserDefaults.standard.removeObject(forKey: "custom-tunings-v1")
             UserDefaults.standard.set(instrument.rawValue, forKey: "instrument")
             UserDefaults.standard.removeObject(forKey: "show-cents")
             for value in Instrument.allCases { UserDefaults.standard.removeObject(forKey: "tuning-\(value.rawValue)") }
@@ -178,7 +181,8 @@ private final class AudioDriver {
             if args.contains("--ukulele") { instrument = .ukulele; tuningID = "high-g" }
             if args.contains("--chromatic") { instrument = .chromatic }
             let target = instrument == .ukulele ? 60 : instrument == .chromatic ? 69 : 45
-            frequency = PitchMath.frequency(target) * pow(2, (instrument == .ukulele ? 0 : -8) / 1200.0)
+            let previewCents = args.firstIndex(of: "--cents").flatMap { $0 + 1 < args.count ? Double(args[$0 + 1]) : nil } ?? (instrument == .ukulele ? 0 : -8)
+            frequency = PitchMath.frequency(target) * pow(2, previewCents / 1200.0)
             recalculate()
         }
         if args.contains("--silent") { demo = true; clearReading() }
@@ -230,7 +234,8 @@ private final class AudioDriver {
         return listening ? "LISTENING" : "PAUSED"
     }
     func selectInstrument(_ value: Instrument) {
-        feedback.reset(); inTune = false; isHeld = false
+        feedback.reset(); inTune = false
+        if isHeld { clearReading() }
         lockedIndex = nil; lockedPitch = nil; selectedIndex = nil; note = nil
         instrument = value
         tuningID = UserDefaults.standard.string(forKey: "tuning-\(value.rawValue)") ?? value.tunings.first?.id ?? ""
@@ -239,8 +244,9 @@ private final class AudioDriver {
         recalculate()
     }
     func selectTuning(_ value: Tuning) {
-        feedback.reset(); inTune = false; isHeld = false
         guard availableTunings.contains(value) else { return }
+        feedback.reset(); inTune = false
+        if isHeld { clearReading() }
         tuningID = value.id; lockedIndex = nil; selectedIndex = nil; note = nil
         UserDefaults.standard.set(value.id, forKey: "tuning-\(instrument.rawValue)")
         recalculate()
@@ -371,7 +377,7 @@ private final class AudioDriver {
         if recent.count > 3 { recent.removeFirst() }
         let previousNote = note
         frequency = recent.sorted()[recent.count / 2]
-        recalculate()
+        recalculate(preserveVisual: true)
         if previousNote != note || returning { visualCents = cents }
         else {
             let alpha = 1 - exp(-max(0, now - visualTime) / 0.09)
@@ -385,21 +391,23 @@ private final class AudioDriver {
         }
     }
 
-    private func recalculate() {
-        if let lockedIndex { selectedIndex = lockedIndex }
-        guard let frequency else { note = nil; cents = 0; return }
+    private func recalculate(preserveVisual: Bool = false) {
+        selectedIndex = lockedIndex
+        guard let frequency else { note = nil; cents = 0; visualCents = 0; return }
         note = PitchMath.target(frequency: frequency, reference: reference, notes: notes,
                                 locked: lockedPitch ?? lockedIndex.map { notes[$0] }, previous: note)
         selectedIndex = lockedIndex ?? notes.firstIndex(of: note!)
         cents = PitchMath.cents(frequency, target: note!, reference: reference)
-        if demo && !signalFixture { visualCents = cents; inTune = abs(cents) <= 3 }
+        if !preserveVisual { visualCents = cents }
+        if demo && !signalFixture { inTune = abs(cents) <= 3 }
     }
     private func clearReading() {
         frequency = nil; note = nil; cents = 0; visualCents = 0; recent.removeAll()
         isHeld = false; inTune = false; feedback.reset()
         selectedIndex = lockedIndex
     }
-    func stop() {
+    func stop(preserveResume: Bool = false) {
+        if !preserveResume { resumeState.pause() }
         generation = UUID()
         fixtureTask?.cancel(); fixtureTask = nil
         if !demo || tone { audio.stop() }
@@ -407,9 +415,16 @@ private final class AudioDriver {
         clearReading()
         UIApplication.shared.isIdleTimerDisabled = false
     }
-    func toggleTone() { if tone { stop(); start() } else { playTone() } }
+    func toggleTone() {
+        if tone {
+            let resume = resumeState.finishTone()
+            stop()
+            if resume { start() }
+        } else { playTone() }
+    }
     private func playTone() {
-        stop()
+        resumeState.beginTone(active: listening || requesting)
+        stop(preserveResume: true)
         let token = generation
         tone = true
         audio.reference(reference) { [weak self] error in
@@ -419,22 +434,30 @@ private final class AudioDriver {
             }
         }
     }
-    func background() { resumeListening = listening || requesting; stop() }
+    func background() {
+        resumeState.suspend(active: listening || requesting)
+        stop(preserveResume: true)
+    }
     func foreground() {
-        guard !demo else { return }
-        if resumeListening { resumeListening = false; start() }
+        guard !demo, UIApplication.shared.applicationState == .active else { return }
+        if resumeState.resume(isActive: UIApplication.shared.applicationState == .active) { start() }
         else if permissionDenied && AVAudioApplication.shared.recordPermission == .granted { error = nil; start() }
     }
     private func audioChanged(_ notification: Notification) {
         if notification.name == AVAudioSession.interruptionNotification {
             let raw = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
-            if raw == AVAudioSession.InterruptionType.began.rawValue { resumeListening = listening || requesting; stop() }
-            else if let options = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt,
-                    AVAudioSession.InterruptionOptions(rawValue: options).contains(.shouldResume) { foreground() }
+            if raw == AVAudioSession.InterruptionType.began.rawValue {
+                resumeState.interrupted = true
+                background()
+            } else {
+                let options = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+                resumeState.endInterruption(shouldResume: AVAudioSession.InterruptionOptions(rawValue: options).contains(.shouldResume))
+                foreground()
+            }
         } else if notification.name == AVAudioSession.routeChangeNotification,
                   (notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt) == AVAudioSession.RouteChangeReason.categoryChange.rawValue {
             return
-        } else if listening { stop(); start() }
+        } else if listening || requesting { stop(); start() }
         else if tone { stop() }
     }
 }

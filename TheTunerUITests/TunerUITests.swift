@@ -59,6 +59,11 @@ final class TunerUITests: XCTestCase {
     func testSilenceAndPermissionRecoveryUI() {
         launch(["--silent"])
         XCTAssertTrue(app.otherElements["pitchDisplay"].value as? String == "Play a note")
+        app.buttons["string-6"].tap()
+        XCTAssertEqual(app.buttons["string-6"].value as? String, "Locked")
+        app.buttons["autoString"].tap()
+        XCTAssertNotEqual(app.buttons["string-6"].value as? String, "Detected")
+        XCTAssertNotEqual(app.buttons["string-6"].value as? String, "Locked")
         screenshot("silence")
         app.terminate()
         launch(["--denied"])
@@ -141,12 +146,20 @@ final class TunerUITests: XCTestCase {
     }
 
 
-    private func tapVisible(_ element: XCUIElement) {
-        for _ in 0..<8 {
-            if element.exists && element.isHittable { element.tap(); return }
-            app.swipeUp()
+    @discardableResult private func tapVisible(_ element: XCUIElement) -> String {
+        for _ in 0..<16 {
+            let frame = element.exists ? element.frame : .zero
+            if element.exists && element.isHittable && frame.midY > 160 && frame.midY < app.frame.maxY - 20 {
+                let title = element.label
+                element.tap(); return title
+            }
+            // Native swipes cancel button presses correctly while scrolling.
+            let down = element.exists && frame.midY < 160
+            if down { app.swipeDown(velocity: .slow) }
+            else { app.swipeUp(velocity: .slow) }
         }
         XCTFail("Could not reach \(element)")
+        return ""
     }
     func testAllInstrumentsAndLongPresetList() {
         launch()
@@ -200,6 +213,148 @@ final class TunerUITests: XCTestCase {
         app.buttons["close-Tuning"].tap()
         XCTAssertTrue(app.buttons["tuningMenu"].label.contains("Standard"))
         XCTAssertFalse(app.buttons["string-7"].exists)
+    }
+
+    func testEveryPresetCanBeSelected() {
+        launch()
+        let catalogue: [(String, [String])] = [
+            ("Guitar", ["standard", "drop-d", "half-down", "dadgad", "open-g", "open-d", "whole-down", "drop-c", "open-e", "open-c", "double-drop-d", "seven", "eight"]),
+            ("Ukulele", ["high-g", "low-g", "baritone", "d-tuning", "low-a", "slack-key", "half-down"]),
+            ("Bass", ["standard", "five", "six", "drop-d", "half-down", "d-standard", "drop-c", "drop-a"]),
+            ("Violin", ["standard", "cross-a", "cross-g", "calico", "five"]),
+            ("Viola", ["standard", "half-down", "whole-down"]),
+            ("Cello", ["standard", "bach", "half-down", "whole-down"]),
+            ("Banjo", ["open-g", "double-c", "sawmill", "open-d", "standard-c", "tenor", "irish"]),
+            ("Mandolin", ["standard", "cross-g", "cross-a", "octave", "mandola"])
+        ]
+        var checked = 0
+        for (instrument, presets) in catalogue {
+            app.buttons["instrumentMenu"].tap()
+            tapVisible(app.buttons["instrument-" + instrument])
+            for preset in presets {
+                app.buttons["tuningMenu"].tap()
+                let row = app.buttons["tuning-" + preset]
+                let chosenTitle = tapVisible(row)
+                expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: app.buttons["close-Tuning"])
+                waitForExpectations(timeout: 3)
+                XCTAssertEqual(app.buttons["tuningMenu"].label, "Tuning, " + chosenTitle)
+                XCTAssertTrue(app.buttons["string-1"].exists)
+                app.buttons["string-1"].tap()
+                XCTAssertEqual(app.buttons["string-1"].value as? String, "Locked")
+                app.buttons["autoString"].tap()
+                XCTAssertNotEqual(app.buttons["string-1"].value as? String, "Locked")
+                checked += 1
+            }
+            screenshot("audit-" + instrument)
+        }
+        XCTAssertEqual(checked, 52)
+        // Each instrument retains its own last selection.
+        app.buttons["instrumentMenu"].tap()
+        tapVisible(app.buttons["instrument-Guitar"])
+        XCTAssertTrue(app.buttons["string-8"].exists)
+        app.terminate()
+        app.launchArguments = ["--preview"]
+        app.launch()
+        XCTAssertTrue(app.buttons["string-8"].waitForExistence(timeout: 5))
+    }
+
+    func testCalibrationBoundsAndPersistence() {
+        launch()
+        app.buttons["reference"].tap()
+        let slider = app.sliders["Concert A frequency"]
+        slider.adjust(toNormalizedSliderPosition: 0)
+        XCTAssertFalse(app.buttons["Lower reference"].isEnabled)
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["reference"].label.contains("420"))
+        app.buttons["reference"].tap()
+        slider.adjust(toNormalizedSliderPosition: 1)
+        XCTAssertFalse(app.buttons["Raise reference"].isEnabled)
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["reference"].label.contains("460"))
+        app.buttons["reference"].tap()
+        app.buttons["reference-432"].tap()
+        app.buttons["Raise reference"].tap()
+        app.buttons["Lower reference"].tap()
+        app.buttons["Done"].tap()
+        XCTAssertTrue(app.buttons["reference"].label.contains("432"))
+        app.terminate(); app.launchArguments = ["--preview"]; app.launch()
+        XCTAssertTrue(app.buttons["reference"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["reference"].label.contains("432"))
+    }
+
+    func testCustomLimitsAndCancel() {
+        launch()
+        app.buttons["tuningMenu"].tap(); app.buttons["newCustom"].tap()
+        app.buttons["Remove string"].tap(); app.buttons["Remove string"].tap()
+        XCTAssertFalse(app.buttons["Remove string"].isEnabled)
+        for _ in 0..<4 { app.buttons["Add string"].tap() }
+        XCTAssertFalse(app.buttons["Add string"].isEnabled)
+        app.buttons["edit-string-8"].tap()
+        app.buttons["Lower octave"].tap(); app.buttons["Lower octave"].tap()
+        XCTAssertFalse(app.buttons["Lower octave"].isEnabled)
+        for _ in 0..<5 { app.buttons["Raise octave"].tap() }
+        XCTAssertFalse(app.buttons["Raise octave"].isEnabled)
+        XCTAssertFalse(app.buttons["pitch-class-6"].isEnabled)
+        app.buttons["pitch-class-5"].tap()
+        app.buttons["close-Custom tuning"].tap()
+        app.buttons["close-Tuning"].tap()
+        XCTAssertTrue(app.buttons["tuningMenu"].label.contains("Standard"))
+        XCTAssertFalse(app.buttons["string-8"].exists)
+    }
+
+    func testToneRespectsPausedMicrophone() {
+        app.launchArguments = ["--reset"]; app.launch()
+        let status = app.descendants(matching: .any)["inputStatus"]
+        expectation(for: NSPredicate(format: "label == %@", "LISTENING"), evaluatedWith: status)
+        waitForExpectations(timeout: 10)
+        app.buttons["settings"].tap()
+        app.buttons["microphoneToggle"].tap()
+        app.buttons["referenceTone"].tap()
+        XCTAssertEqual(app.buttons["referenceTone"].label, "Stop reference tone")
+        app.buttons["referenceTone"].tap()
+        XCTAssertEqual(app.buttons["microphoneToggle"].label, "Resume microphone")
+        app.buttons["Done"].tap()
+        XCTAssertEqual(status.label, "PAUSED")
+        XCUIDevice.shared.press(.home); app.activate()
+        XCTAssertEqual(status.label, "PAUSED")
+        app.buttons["settings"].tap(); app.buttons["microphoneToggle"].tap()
+        expectation(for: NSPredicate(format: "label == %@", "Pause microphone"), evaluatedWith: app.buttons["microphoneToggle"])
+        waitForExpectations(timeout: 10)
+        app.buttons["referenceTone"].tap(); app.buttons["referenceTone"].tap()
+        expectation(for: NSPredicate(format: "label == %@", "Pause microphone"), evaluatedWith: app.buttons["microphoneToggle"])
+        waitForExpectations(timeout: 10)
+    }
+
+    func testProximityPresentationStates() {
+        for (cents, name) in [("-40", "far-orange"), ("-12", "near-gold"), ("0", "center-green"), ("+12", "sharp-gold")] {
+            launch(["--cents", cents])
+            screenshot(name)
+            XCTAssertEqual(app.otherElements["pitchDisplay"].label, "A2")
+            XCTAssertTrue((app.otherElements["pitchDisplay"].value as? String)?.contains(cents == "0" ? "IN TUNE" : cents.hasPrefix("+") ? "SHARP" : "FLAT") == true)
+            app.terminate()
+        }
+    }
+
+    func testSystemMicrophoneDenial() {
+        app.resetAuthorizationStatus(for: .microphone)
+        app.launchArguments = ["--reset"]; app.launch()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let deny = springboard.alerts.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "Allow")).firstMatch
+        // The first button is Don't Allow; explicitly verify its meaning.
+        XCTAssertTrue(deny.waitForExistence(timeout: 8))
+        XCTAssertTrue(deny.label.lowercased().contains("don"))
+        deny.tap()
+        XCTAssertTrue(app.buttons["Open Settings"].waitForExistence(timeout: 5))
+        screenshot("system-microphone-denied")
+        app.buttons["Dismiss"].tap()
+        XCTAssertEqual(app.descendants(matching: .any)["inputStatus"].label, "MICROPHONE OFF")
+        app.terminate()
+        app.resetAuthorizationStatus(for: .microphone)
+        app.launch()
+        let allow = springboard.alerts.buttons["Allow"]
+        XCTAssertTrue(allow.waitForExistence(timeout: 8)); allow.tap()
+        expectation(for: NSPredicate(format: "label == %@", "LISTENING"), evaluatedWith: app.descendants(matching: .any)["inputStatus"])
+        waitForExpectations(timeout: 10)
     }
 
 }

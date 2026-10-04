@@ -31,9 +31,9 @@ struct TuningEditor: View {
             HStack {
                 Text("\(notes.count) \(instrument == .mandolin ? "courses" : "strings")").font(.system(size: 15))
                 Spacer()
-                Button { selectedString = nil; notes.removeFirst() } label: { Image(systemName: "minus").frame(width: 44, height: 44) }
+                Button { selectedString = nil; notes.removeFirst() } label: { Image(systemName: "minus").frame(width: 44, height: 44).contentShape(Rectangle()) }
                     .disabled(notes.count <= 4).accessibilityLabel("Remove string")
-                Button { selectedString = nil; notes.insert(notes.first ?? 40, at: 0) } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
+                Button { selectedString = nil; notes.insert(notes.first ?? 40, at: 0) } label: { Image(systemName: "plus").frame(width: 44, height: 44).contentShape(Rectangle()) }
                     .disabled(notes.count >= 8).accessibilityLabel("Add string")
             }.padding(.horizontal, 12)
             ForEach(notes.indices, id: \.self) { i in
@@ -53,10 +53,10 @@ struct TuningEditor: View {
                     HStack {
                         Text("Octave").font(.system(size: 13)).foregroundStyle(CleanStyle.muted)
                         Spacer()
-                        Button { notes[i] -= 12 } label: { Image(systemName: "minus").frame(width: 44, height: 44) }
+                        Button { notes[i] -= 12 } label: { Image(systemName: "minus").frame(width: 44, height: 44).contentShape(Rectangle()) }
                             .disabled(notes[i] - 12 < 21).accessibilityLabel("Lower octave")
                         Text("\(PitchMath.octave(notes[i]))").monospacedDigit().frame(width: 20)
-                        Button { notes[i] += 12 } label: { Image(systemName: "plus").frame(width: 44, height: 44) }
+                        Button { notes[i] += 12 } label: { Image(systemName: "plus").frame(width: 44, height: 44).contentShape(Rectangle()) }
                             .disabled(notes[i] + 12 > 89).accessibilityLabel("Raise octave")
                     }.padding(.horizontal, 12)
                 }

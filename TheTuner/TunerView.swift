@@ -135,7 +135,7 @@ struct TunerView: View {
                     }
                     Text(model.frequency == nil ? "Play a note" : model.inTune ? "In tune" : abs(model.cents) <= 3 ? "Settling" : model.cents < 0 ? "Tune up" : "Tune down")
                         .font(.system(size: 20, weight: .medium))
-                }.foregroundStyle(model.inTune ? CleanStyle.tuned : CleanStyle.ink)
+                }.foregroundStyle(model.inTune ? CleanStyle.tunedInk : CleanStyle.ink)
                 Spacer()
                 Text("+").technical(17, spacing: 0).foregroundStyle(CleanStyle.muted)
             }.frame(height: 52).padding(.horizontal, 18)
@@ -208,9 +208,9 @@ struct TunerView: View {
             Text("\(Int(model.reference))").font(.system(size: 64, weight: .light)).monospacedDigit().padding(.top, 12)
             Text("Hz").technical(12).foregroundStyle(CleanStyle.muted)
             HStack(spacing: 16) {
-                Button { model.calibrate(-1) } label: { Image(systemName: "minus").frame(width: 44, height: 44) }.accessibilityLabel("Lower reference")
+                Button { model.calibrate(-1) } label: { Image(systemName: "minus").frame(width: 44, height: 44).contentShape(Rectangle()) }.disabled(model.reference <= 420).accessibilityLabel("Lower reference")
                 Slider(value: $model.reference, in: 420...460, step: 1).tint(CleanStyle.orange).accessibilityLabel("Concert A frequency")
-                Button { model.calibrate(1) } label: { Image(systemName: "plus").frame(width: 44, height: 44) }.accessibilityLabel("Raise reference")
+                Button { model.calibrate(1) } label: { Image(systemName: "plus").frame(width: 44, height: 44).contentShape(Rectangle()) }.disabled(model.reference >= 460).accessibilityLabel("Raise reference")
             }
             HStack(spacing: 10) {
                 ForEach([432,440,442], id: \.self) { hz in

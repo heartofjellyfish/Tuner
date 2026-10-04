@@ -7,6 +7,7 @@ enum CleanStyle {
     static let muted = Color(hex: 0x686F6B)
     static let orange = Color(hex: 0xFF941A)
     static let tuned = Color(hex: 0x3A9D78)
+    static let tunedInk = Color(hex: 0x247457)
     static let silver = Color(hex: 0xDADDD9)
 }
 extension Color {
@@ -43,6 +44,7 @@ struct Surface: ViewModifier {
 /// Each semitone owns a 100-cent sector. Boundaries are halfway between labels.
 /// The marker is linear in cents, rather than copied from a generated mockup.
 struct PitchArc: View {
+    @Environment(\.colorSchemeContrast) private var contrast
     let note: Int?
     let cents: Double
     let active: Bool
@@ -70,18 +72,26 @@ struct PitchArc: View {
                 }
             }
             if active {
+                let proximity = TuningProximity.closeness(cents)
+                let accent = inTune ? CleanStyle.tuned : Color(.sRGB,
+                    red: 1 - 0.06 * proximity, green: 0.58 + 0.14 * proximity,
+                    blue: 0.10 + 0.19 * proximity, opacity: 1)
+                let spread = 15 - 7 * proximity
                 let angle = -90 + max(-148, min(148, cents)) * 0.4
                 var glow = Path()
-                glow.addArc(center: origin, radius: radius, startAngle: .degrees(max(-150, angle - 12)), endAngle: .degrees(min(-30, angle + 12)), clockwise: false)
+                glow.addArc(center: origin, radius: radius, startAngle: .degrees(max(-150, angle - spread)), endAngle: .degrees(min(-30, angle + spread)), clockwise: false)
                 context.drawLayer { layer in
                     layer.addFilter(.blur(radius: 12))
-                    layer.stroke(glow, with: .color((inTune ? CleanStyle.tuned : CleanStyle.orange).opacity(0.4)), lineWidth: 23)
+                    layer.stroke(glow, with: .color(accent.opacity(0.22 + 0.26 * proximity)), lineWidth: 26 - 6 * proximity)
                 }
                 var marker = Path()
                 marker.move(to: point(angle, radius - 24)); marker.addLine(to: point(angle, radius + 17))
-                context.stroke(marker, with: .color((inTune ? CleanStyle.tuned : CleanStyle.orange)), style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
+                if contrast == .increased {
+                    context.stroke(marker, with: .color(CleanStyle.ink), style: StrokeStyle(lineWidth: 4.5, lineCap: .round))
+                }
+                context.stroke(marker, with: .color(accent), style: StrokeStyle(lineWidth: 2.6 + 0.4 * proximity, lineCap: .round))
                 if abs(cents) > 150 {
-                    context.draw(Text(cents < 0 ? "‹" : "›").font(.system(size: 25)).foregroundColor((inTune ? CleanStyle.tuned : CleanStyle.orange)), at: point(cents < 0 ? -153 : -27, radius))
+                    context.draw(Text(cents < 0 ? "‹" : "›").font(.system(size: 25)).foregroundColor(accent), at: point(cents < 0 ? -153 : -27, radius))
                 }
             }
         }.accessibilityHidden(true)

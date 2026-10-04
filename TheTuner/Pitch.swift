@@ -11,7 +11,7 @@ struct PitchReading {
 /// several periods in the original samples, avoiding high-note decimation bias.
 struct PitchDetector {
     func detect(_ samples: [Float], rate: Double, minimumRMS: Double = 0.003) -> PitchReading? {
-        guard rate.isFinite, rate >= 8000, rate <= 192000, samples.count >= 2048,
+        guard rate.isFinite, rate >= 8000, rate <= 192000, minimumRMS.isFinite, minimumRMS >= 0, samples.count >= 2048,
               samples.allSatisfy({ $0.isFinite }) else { return nil }
         let stride = max(1, Int(rate / 12000))
         let count = samples.count / stride
@@ -26,7 +26,7 @@ struct PitchDetector {
         guard rms > minimumRMS else { return nil }
         let sampleRate = rate / Double(stride)
         let minLag = max(2, Int(sampleRate / 1500))
-        let maxLag = min(count / 2 - 1, Int(sampleRate / 25))
+        let maxLag = min(count / 2 - 1, Int(ceil(sampleRate / 25)) + 2)
         guard maxLag > minLag else { return nil }
         let window = count - maxLag
         var difference = [Double](repeating: 1, count: maxLag + 1)
@@ -71,10 +71,11 @@ struct PitchDetector {
         var candidates: [(period: Double, loss: Double)] = []
         for factor in [1.0 / 3, 0.5, 1.0, 2.0, 3.0] {
             let guess = coarsePeriod * factor
-            guard guess >= rate / 1500, guess <= rate / 25 else { continue }
+            guard guess >= rate / 1500 - Double(stride * 2), guess <= rate / 25 + Double(stride * 2) else { continue }
             let lo = max(2, Int(guess) - stride * 2)
             let hi = min(samples.count / 2 - 2, Int(guess) + stride * 2)
-            let n = samples.count - hi - 1
+            guard hi > lo + 2 else { continue }
+            let n = samples.count - hi - 2
             let values = ((lo - 1)...(hi + 1)).map { vectorLoss($0, count: n, normalized: true) }
             let k = (1..<(values.count - 1)).min(by: { values[$0] < values[$1] })!
             let d = values[k-1] - 2 * values[k] + values[k+1]
@@ -86,18 +87,23 @@ struct PitchDetector {
             var error = 0.0, power = 0.0
             for i in 0..<n {
                 let a = Double(samples[i])
-                let b = Double(samples[i + integer]) * (1-fraction) + Double(samples[i + integer + 1]) * fraction
+                let t = fraction, j = i + integer
+                let b = -t*(t-1)*(t-2)/6 * Double(samples[j-1])
+                    + (t+1)*(t-1)*(t-2)/2 * Double(samples[j])
+                    - (t+1)*t*(t-2)/2 * Double(samples[j+1])
+                    + (t+1)*t*(t-1)/6 * Double(samples[j+2])
                 error += (a-b)*(a-b); power += a*a+b*b
             }
             candidates.append((candidatePeriod, error / max(power, 1e-20)))
         }
         guard let minimum = candidates.map(\.loss).min(), minimum < 0.08,
-              let chosen = candidates.filter({ $0.loss <= max(0.001, minimum * 2) }).min(by: { $0.period < $1.period }) else { return nil }
+              let chosen = candidates.filter({ $0.loss <= max(0.002, minimum * 2) }).min(by: { $0.period < $1.period }) else { return nil }
         let period = chosen.period
         // Long-baseline interpolation is far more precise than rounding a short period.
         let multiples = max(1, min(8, Int(1200 / period)))
         let estimated = Int((period * Double(multiples)).rounded())
-        let radius = max(3, stride * multiples)
+        // Do not let a wide search pick the neighboring whole period.
+        let radius = min(max(3, stride * multiples), max(1, Int(period * 0.4)))
         let lower = max(2, estimated - radius)
         let upper = min(samples.count / 2 - 2, estimated + radius)
         guard upper > lower else { return nil }
@@ -109,7 +115,7 @@ struct PitchDetector {
         let adjustment = abs(d) > 1e-12 ? 0.5 * (raw[best - 1] - raw[best + 1]) / d : 0
         let refined = Double(lower - 1 + best) + max(-1, min(1, adjustment))
         let frequency = rate * Double(multiples) / refined
-        guard frequency >= 25, frequency <= 1500 else { return nil }
+        guard frequency >= 25 / pow(2, 1.0 / 1200), frequency <= 1500 * pow(2, 1.0 / 1200) else { return nil }
         return PitchReading(frequency: frequency, confidence: 1 - center, rms: rms)
     }
 }
@@ -242,5 +248,39 @@ enum ReadingAge {
     case live, held, expired
     static func state(elapsed: Double) -> ReadingAge {
         elapsed >= 3 ? .expired : elapsed >= 0.2 ? .held : .live
+    }
+}
+
+/// Redundant distance cue: direction is still the marker position; only stable
+/// tuning may turn green. Gold/brightness never declares success by itself.
+enum TuningProximity {
+    static func closeness(_ cents: Double) -> Double {
+        guard cents.isFinite else { return 0 }
+        return pow(max(0, 1 - abs(cents) / 50), 1.5)
+    }
+}
+
+/// Remember user intent across overlapping scene/audio interruptions and tones.
+/// A deliberate pause cancels any pending microphone restart.
+struct AudioResumeState {
+    var interrupted = false
+    private(set) var suspended = false
+    private(set) var afterTone = false
+    mutating func pause() { suspended = false; afterTone = false }
+    mutating func suspend(active: Bool) {
+        suspended = suspended || active || afterTone
+        afterTone = false
+    }
+    mutating func beginTone(active: Bool) { afterTone = afterTone || active }
+    mutating func finishTone() -> Bool {
+        let result = afterTone; afterTone = false; return result
+    }
+    mutating func endInterruption(shouldResume: Bool) {
+        interrupted = false
+        if !shouldResume { suspended = false }
+    }
+    mutating func resume(isActive: Bool) -> Bool {
+        guard isActive, !interrupted, suspended else { return false }
+        suspended = false; return true
     }
 }

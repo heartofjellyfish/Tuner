@@ -1,3 +1,40 @@
+FEATURE AUDIT — 2026-10-03 (latest; supersedes historical failures below)
+
+See FEATURE-AUDIT.txt for the Chinese feature-by-feature principles, evidence,
+research sources, fixes, and explicit outstanding hardware checks.
+
+DSP: Scripts/verify.sh passed 2,070 synthetic signals, zero misses/failures,
+max 0.49956 ct on its noise corpus. 2,382 additional feature/boundary/state
+assertions passed, including 25/1500 Hz and phase changes at 8–192 kHz.
+This is algorithm verification, not measured phone/competitor accuracy.
+
+UI on iPhone 16e / iOS 26.3: all 16 distinct test cases have passed across runs.
+- Full run: Test-TheTuner-2026.10.03_19-37-02--0700.xcresult, 14/16.
+  Failures were the scroll test helper, confirmed by test recording.
+- Final targeted run: Test-TheTuner-2026.10.03_19-42-56--0700.xcresult, 4/4.
+  All 52 preset selections, all instruments/long list, proximity screenshots,
+  and silence/lock/AUTO/permission fixture pass. No failing assertions removed.
+- Real iOS microphone denial then allow, actual microphone start/pause/resume,
+  background return, and reference-tone microphone restoration passed.
+- Orange/gold/green native screenshots and actual Increase Contrast verification
+  are saved as proximity-*.png. These are explicitly labelled PREVIEW fixtures.
+
+iPhone SE / iOS 18.2: Chromatic hold/calibration and custom limits/cancel passed.
+The first exhaustive preset test exposed an overly conservative test bottom
+margin on the last instrument row. After fixing the test viewport margin,
+all 52 selections (including exact displayed titles), locks/releases, per-
+instrument memory and restart passed in the final targeted run.
+Final result: build/se/Logs/Test/Test-TheTuner-2026.10.03_19-51-03--0700.xcresult.
+No app preset was removed.
+
+Signed Release build succeeded and installed on the paired iPhone 14 Pro.
+Automatic launch was denied because the phone was locked; installation itself
+succeeded. Unlock and open Clean Tuner. No physical launch/measurement is claimed.
+Physical microphone accuracy, haptic feel, calls, external routes, sustained
+power use and competitor side-by-side comparison remain unverified.
+
+--- Historical results (retained as evidence, not current pass/fail status) ---
+
 FEEDBACK / SUSTAIN UPDATE — 2026-10-03
 
 Green arc, string and checkmark after 250 ms within ±3 cents; exits green beyond

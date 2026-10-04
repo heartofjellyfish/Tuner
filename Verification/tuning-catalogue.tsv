@@ -1,0 +1,53 @@
+Instrument	Preset	Strings/courses (last numbered to first)	ID
+Guitar	Standard	E2 A2 D3 G3 B3 E4	standard
+Guitar	Drop D	D2 A2 D3 G3 B3 E4	drop-d
+Guitar	Half step down	D♯2 G♯2 C♯3 F♯3 A♯3 D♯4	half-down
+Guitar	DADGAD	D2 A2 D3 G3 A3 D4	dadgad
+Guitar	Open G	D2 G2 D3 G3 B3 D4	open-g
+Guitar	Open D	D2 A2 D3 F♯3 A3 D4	open-d
+Guitar	D standard	D2 G2 C3 F3 A3 D4	whole-down
+Guitar	Drop C	C2 G2 C3 F3 A3 D4	drop-c
+Guitar	Open E	E2 B2 E3 G♯3 B3 E4	open-e
+Guitar	Open C	C2 G2 C3 G3 C4 E4	open-c
+Guitar	Double Drop D	D2 A2 D3 G3 B3 D4	double-drop-d
+Guitar	7-string	B1 E2 A2 D3 G3 B3 E4	seven
+Guitar	8-string	F♯1 B1 E2 A2 D3 G3 B3 E4	eight
+Ukulele	High G	G4 C4 E4 A4	high-g
+Ukulele	Low G	G3 C4 E4 A4	low-g
+Ukulele	Baritone	D3 G3 B3 E4	baritone
+Ukulele	D tuning	A4 D4 F♯4 B4	d-tuning
+Ukulele	Low A · D tuning	A3 D4 F♯4 B4	low-a
+Ukulele	Slack key	G4 C4 E4 G4	slack-key
+Ukulele	Half step down	F♯4 B3 D♯4 G♯4	half-down
+Bass	4-string	E1 A1 D2 G2	standard
+Bass	5-string	B0 E1 A1 D2 G2	five
+Bass	6-string	B0 E1 A1 D2 G2 C3	six
+Bass	Drop D	D1 A1 D2 G2	drop-d
+Bass	Half step down	D♯1 G♯1 C♯2 F♯2	half-down
+Bass	D standard	D1 G1 C2 F2	d-standard
+Bass	Drop C	C1 G1 C2 F2	drop-c
+Bass	5-string Drop A	A0 E1 A1 D2 G2	drop-a
+Violin	Standard	G3 D4 A4 E5	standard
+Violin	Cross A · AEAE	A3 E4 A4 E5	cross-a
+Violin	Cross G · GDGD	G3 D4 G4 D5	cross-g
+Violin	Calico · AEAC♯	A3 E4 A4 C♯5	calico
+Violin	5-string	C3 G3 D4 A4 E5	five
+Viola	Standard	C3 G3 D4 A4	standard
+Viola	Half step down	B2 F♯3 C♯4 G♯4	half-down
+Viola	Whole step down	A♯2 F3 C4 G4	whole-down
+Cello	Standard	C2 G2 D3 A3	standard
+Cello	Bach Suite 5 · CGDG	C2 G2 D3 G3	bach
+Cello	Half step down	B1 F♯2 C♯3 G♯3	half-down
+Cello	Whole step down	A♯1 F2 C3 G3	whole-down
+Banjo	Open G	G4 D3 G3 B3 D4	open-g
+Banjo	Double C	G4 C3 G3 C4 D4	double-c
+Banjo	Sawmill	G4 D3 G3 C4 D4	sawmill
+Banjo	Open D	F♯4 D3 F♯3 A3 D4	open-d
+Banjo	Standard C	G4 C3 G3 B3 D4	standard-c
+Banjo	Tenor · CGDA	C3 G3 D4 A4	tenor
+Banjo	Irish tenor · GDAE	G2 D3 A3 E4	irish
+Mandolin	Standard · GDAE	G3 D4 A4 E5	standard
+Mandolin	Cross G · GDGD	G3 D4 G4 D5	cross-g
+Mandolin	Cross A · AEAE	A3 E4 A4 E5	cross-a
+Mandolin	Octave mandolin	G2 D3 A3 E4	octave
+Mandolin	Mandola · CGDA	C3 G3 D4 A4	mandola
