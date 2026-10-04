@@ -84,7 +84,8 @@ final class TunerUITests: XCTestCase {
     }
     func testSilenceAndPermissionRecoveryUI() {
         launch(["--silent"])
-        XCTAssertTrue(app.otherElements["pitchDisplay"].value as? String == "Play a note")
+        XCTAssertEqual(app.otherElements["pitchDisplay"].label, "Guitar tuner")
+        XCTAssertTrue(app.otherElements["pitchDisplay"].value as? String == "Pluck a string")
         app.buttons["string-6"].tap()
         XCTAssertEqual(app.buttons["string-6"].value as? String, "Locked")
         app.buttons["autoString"].tap()
@@ -111,7 +112,7 @@ final class TunerUITests: XCTestCase {
         expectation(for: acquired, evaluatedWith: display)
         waitForExpectations(timeout: 4)
         screenshot("pcm-detected-a2")
-        let released = NSPredicate(format: "value == %@", "Play a note")
+        let released = NSPredicate(format: "value == %@", "Pluck a string")
         expectation(for: released, evaluatedWith: display)
         waitForExpectations(timeout: 10) // includes the new three-second last-reading hold
     }
@@ -128,7 +129,7 @@ final class TunerUITests: XCTestCase {
         expectation(for: NSPredicate(format: "label == %@ AND NOT value CONTAINS %@", "D3", "LAST READING"), evaluatedWith: display)
         waitForExpectations(timeout: 5)
         screenshot("next-string")
-        expectation(for: NSPredicate(format: "value == %@", "Play a note"), evaluatedWith: display)
+        expectation(for: NSPredicate(format: "value == %@", "Pluck a string"), evaluatedWith: display)
         waitForExpectations(timeout: 9)
     }
     func testOptionalCentsPreference() {

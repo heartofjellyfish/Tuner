@@ -121,16 +121,26 @@ struct TunerView: View {
                          save: model.saveCustom, delete: model.deleteCustom)
         }
     }
+    private var idlePrompt: String {
+        model.instrument == .chromatic || model.instrument.bowed ? "Play a note" : "Pluck a string"
+    }
     private var meter: some View {
         VStack(spacing: 10) {
             HStack(alignment: .center, spacing: 16) {
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text(model.displayNote.map(PitchMath.name) ?? "—")
-                        .font(.system(size: 160, weight: .bold)).tracking(-7)
+                Group {
                     if let note = model.displayNote {
-                        Text("\(PitchMath.octave(note))").font(.system(size: 43, weight: .semibold))
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            Text(PitchMath.name(note)).font(.system(size: 160, weight: .bold)).tracking(-7)
+                            Text("\(PitchMath.octave(note))").font(.system(size: 43, weight: .semibold))
+                        }.lineLimit(1).minimumScaleFactor(0.5)
+                    } else {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(model.instrument.rawValue)
+                            Text("Tuner")
+                        }.font(.system(size: 46, weight: .semibold)).tracking(-1.5)
+                            .lineLimit(1).minimumScaleFactor(0.45)
                     }
-                }.lineLimit(1).minimumScaleFactor(0.5).frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(maxWidth: .infinity, alignment: .leading)
                 Rectangle().fill(style.silver).frame(width: 1, height: 80)
                 VStack(alignment: .leading, spacing: 10) {
                     if model.frequency != nil {
@@ -138,7 +148,10 @@ struct TunerView: View {
                             .font(.system(size: 26, weight: .light))
                             .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? 0 : model.successCount)
                     }
-                    Text(model.frequency == nil ? "Play a note" : model.inTune ? "In tune" : abs(model.cents) <= 3 ? "Settling" : model.cents < 0 ? "Tune up" : "Tune down")
+                    if model.frequency == nil {
+                        Image(systemName: "waveform").font(.system(size: 25, weight: .light))
+                    }
+                    Text(model.frequency == nil ? idlePrompt : model.inTune ? "In tune" : abs(model.cents) <= 3 ? "Settling" : model.cents < 0 ? "Tune up" : "Tune down")
                         .font(.system(size: 18, weight: .medium)).fixedSize(horizontal: false, vertical: true)
                     Group {
                         if model.isHeld { Text("Last reading") }
@@ -156,8 +169,8 @@ struct TunerView: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: model.isHeld)
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("pitchDisplay")
-        .accessibilityLabel(model.displayNote.map(PitchMath.label) ?? "No pitch")
-        .accessibilityValue(model.frequency == nil ? "Play a note" : "\(String(format: "%.1f", model.cents)) cents, \(model.status)")
+        .accessibilityLabel(model.displayNote.map(PitchMath.label) ?? "\(model.instrument.rawValue) tuner")
+        .accessibilityValue(model.frequency == nil ? idlePrompt : "\(String(format: "%.1f", model.cents)) cents, \(model.status)")
     }
     private var chromaticDetails: some View {
         VStack(spacing: 24) {

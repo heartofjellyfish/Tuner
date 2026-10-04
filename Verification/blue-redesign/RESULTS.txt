@@ -18,3 +18,10 @@ Validation:
 
 Screenshots use deterministic DEBUG preview audio state, not a live microphone measurement.
 Small screens and expanded string counts can scroll. Acoustic accuracy was not remeasured in this UI update.
+
+Guitar-first idle follow-up, 2026-10-04:
+- Replaced empty note placeholder with instrument-specific Tuner heading and action prompt.
+- Default instrument remains Guitar; existing instrument preferences are preserved.
+- 3/3 simulator tests passed: silence/permissions, PCM acquisition-to-silence,
+  success/tail/next-string. Visually inspected guitar-first-screen.png.
+- Signed Release build passed.
