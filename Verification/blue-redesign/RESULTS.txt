@@ -41,3 +41,9 @@ Live microphone activity, 2026-10-04:
 - Weak PCM input test passed: positive activity without any acquired note, then zero after silence.
 - Pause/reference-tone lifecycle test passed, including zero activity while paused.
 - Signed Release build passed; visually inspected weak-input screenshot (DEBUG PCM fixture).
+
+Proportion and text correction, 2026-10-04:
+- Headstock uses a width-driven aspect ratio instead of stretching to screen height.
+- Removed large repeated instrument/Tuner heading and idle divider. Kept one small plucking prompt.
+- Instrument/tuning/lock and weak-input-without-pitch tests passed (2/2).
+- Visually inspected fixed-proportions.png; signed Release build passed.

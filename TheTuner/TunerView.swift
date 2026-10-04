@@ -32,7 +32,7 @@ struct TunerView: View {
                                 Color.clear.frame(height: 44).accessibilityHidden(true)
                             }
                             Headstock(instrument: model.instrument, notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, inTune: model.inTune, select: model.selectString)
-                                .frame(height: max(model.notes.count > 6 ? 260 : 170, min(340, geo.size.height - 425)))
+                                .aspectRatio(model.notes.count > 6 ? 1.2 : 1.42, contentMode: .fit)
                                 .padding(.horizontal, 8).opacity(model.isHeld ? 0.55 : 1)
                         }
                     }
@@ -127,38 +127,39 @@ struct TunerView: View {
     }
     private var meter: some View {
         VStack(spacing: 10) {
-            HStack(alignment: .center, spacing: 16) {
-                Group {
-                    if let note = model.displayNote {
-                        HStack(alignment: .firstTextBaseline, spacing: 0) {
-                            Text(PitchMath.name(note)).font(.system(size: 160, weight: .bold)).tracking(-7)
-                            Text("\(PitchMath.octave(note))").font(.system(size: 43, weight: .semibold))
-                        }.lineLimit(1).minimumScaleFactor(0.5)
-                    } else {
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(model.instrument.rawValue)
-                            Text("Tuner")
-                        }.font(.system(size: 46, weight: .semibold)).tracking(-1.5)
-                            .lineLimit(1).minimumScaleFactor(0.45)
+            Group {
+                if model.displayNote != nil {
+                    HStack(alignment: .center, spacing: 16) {
+                        Group {
+                            if let note = model.displayNote {
+                                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                                    Text(PitchMath.name(note)).font(.system(size: 160, weight: .bold)).tracking(-7)
+                                    Text("\(PitchMath.octave(note))").font(.system(size: 43, weight: .semibold))
+                                }.lineLimit(1).minimumScaleFactor(0.5)
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                        Rectangle().fill(style.silver).frame(width: 1, height: 80)
+                        VStack(alignment: .leading, spacing: 10) {
+                            if model.frequency != nil {
+                                Image(systemName: model.inTune ? "checkmark.circle" : abs(model.cents) <= 3 ? "circle.dotted" : model.cents < 0 ? "arrow.up" : "arrow.down")
+                                    .font(.system(size: 26, weight: .light))
+                                    .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? 0 : model.successCount)
+                            }
+                            Text(model.frequency == nil ? idlePrompt : model.inTune ? "In tune" : abs(model.cents) <= 3 ? "Settling" : model.cents < 0 ? "Tune up" : "Tune down")
+                                .font(.system(size: 18, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+                            Group {
+                                if model.isHeld { Text("Last reading") }
+                                else if showCents, model.frequency != nil {
+                                    Text(abs(model.visualCents) < 0.5 ? "0 ct" : String(format: "%+.0f ct", model.visualCents))
+                                }
+                            }.font(.system(size: 11, design: .monospaced)).monospacedDigit()
+                                .foregroundStyle(style.muted).accessibilityIdentifier("centsDetail")
+                        }.foregroundStyle(model.inTune ? style.tunedInk : style.orange).frame(width: 102, alignment: .leading)
                     }
-                }.frame(maxWidth: .infinity, alignment: .leading)
-                Rectangle().fill(style.silver).frame(width: 1, height: 80)
-                VStack(alignment: .leading, spacing: 10) {
-                    if model.frequency != nil {
-                        Image(systemName: model.inTune ? "checkmark.circle" : abs(model.cents) <= 3 ? "circle.dotted" : model.cents < 0 ? "arrow.up" : "arrow.down")
-                            .font(.system(size: 26, weight: .light))
-                            .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? 0 : model.successCount)
-                    }
-                    Text(model.frequency == nil ? idlePrompt : model.inTune ? "In tune" : abs(model.cents) <= 3 ? "Settling" : model.cents < 0 ? "Tune up" : "Tune down")
-                        .font(.system(size: 18, weight: .medium)).fixedSize(horizontal: false, vertical: true)
-                    Group {
-                        if model.isHeld { Text("Last reading") }
-                        else if showCents, model.frequency != nil {
-                            Text(abs(model.visualCents) < 0.5 ? "0 ct" : String(format: "%+.0f ct", model.visualCents))
-                        }
-                    }.font(.system(size: 11, design: .monospaced)).monospacedDigit()
-                        .foregroundStyle(style.muted).accessibilityIdentifier("centsDetail")
-                }.foregroundStyle(model.inTune ? style.tunedInk : style.orange).frame(width: 102, alignment: .leading)
+                } else {
+                    Text(idlePrompt).font(.system(size: 18, weight: .regular))
+                        .foregroundStyle(style.muted).frame(maxWidth: .infinity)
+                }
             }.frame(height: 166)
             PitchRuler(note: model.displayNote, cents: model.visualCents, active: model.frequency != nil, inTune: model.inTune)
         }
