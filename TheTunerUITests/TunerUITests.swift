@@ -15,6 +15,32 @@ final class TunerUITests: XCTestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
+    func testThemeSelectionAndPersistence() {
+        launch()
+        app.buttons["settings"].tap()
+        XCTAssertTrue(app.buttons["theme-blue"].waitForExistence(timeout: 5))
+        for theme in ["chalk", "graphite", "blue"] {
+            app.buttons["theme-\(theme)"].tap()
+            XCTAssertEqual(app.buttons["theme-\(theme)"].value as? String, "Selected")
+            screenshot("theme-\(theme)-settings")
+            app.buttons["Done"].tap()
+            XCTAssertTrue(app.buttons["reference"].isHittable)
+            screenshot("theme-\(theme)-guitar")
+            app.buttons["instrumentMenu"].tap()
+            XCTAssertTrue(app.buttons["Ukulele"].waitForExistence(timeout: 3))
+            screenshot("theme-\(theme)-instruments")
+            app.buttons["Guitar"].tap()
+            app.buttons["settings"].tap()
+        }
+        app.buttons["theme-chalk"].tap()
+        app.terminate()
+        app.launchArguments = ["--preview"]
+        app.launch()
+        app.buttons["settings"].tap()
+        XCTAssertEqual(app.buttons["theme-chalk"].value as? String, "Selected")
+        app.buttons["theme-blue"].tap()
+        app.buttons["Done"].tap()
+    }
     func testInstrumentTuningsAndLock() {
         launch()
         XCTAssertTrue(app.buttons["string-6"].exists)

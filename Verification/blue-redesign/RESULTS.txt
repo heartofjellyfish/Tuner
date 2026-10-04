@@ -1,0 +1,20 @@
+Clean Tuner — Swiss layout and color themes
+2026-10-04
+
+Implemented large note + direction readout, three equal semitone bands on a linear cents ruler,
+and vector headstock with real string numbering. Theme selection persists in Settings:
+Ultramarine (default), Chalk, Graphite. Sheets and custom tuning editor inherit the palette.
+The existing pitch detector and success/tail state machine are unchanged.
+
+Validation:
+- Simulator Debug build passed.
+- iPhone 16e: instrument/tuning/lock, chromatic hold/calibration, custom tuning lifecycle,
+  success/tail/next-string, and theme/persistence tests passed (5/5).
+- iPhone SE: all instrument/long preset list and instrument/tuning/lock tests passed (2/2).
+- Final typography adjustment: repeated theme/persistence/visible footer test on iPhone 16e (1/1).
+- Visually inspected final blue, chalk, graphite guitar screens and blue Settings screenshot.
+- Release device build passed; installed and launched on paired iPhone 14 Pro.
+- git diff --check passed.
+
+Screenshots use deterministic DEBUG preview audio state, not a live microphone measurement.
+Small screens and expanded string counts can scroll. Acoustic accuracy was not remeasured in this UI update.

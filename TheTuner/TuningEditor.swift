@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct TuningEditor: View {
+    @Environment(\.tunerTheme) private var theme
+    private var style: CleanStyle { theme.style }
     let instrument: Instrument
     let original: Tuning
     let editing: Bool
@@ -24,8 +26,8 @@ struct TuningEditor: View {
     var body: some View {
         CleanPanel(title: editing ? "Edit tuning" : "Custom tuning", subtitle: instrument.rawValue.uppercased()) {
             TextField("Tuning name", text: $name).font(.system(size: 17)).padding(18)
-                .background(.white, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(CleanStyle.silver, lineWidth: 1))
+                .background(style.ink.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(style.silver, lineWidth: 1))
                 .accessibilityIdentifier("tuningName").focused($nameFocused).submitLabel(.done).onSubmit { nameFocused = false }
                 .onChange(of: name) { _, value in if value.count > 32 { name = String(value.prefix(32)) } }
             HStack {
@@ -46,12 +48,12 @@ struct TuningEditor: View {
                             let target = (notes[i] / 12) * 12 + pc
                             Button { notes[i] = target } label: {
                                 Text(PitchMath.names[pc]).font(.system(size: 15)).frame(maxWidth: .infinity, minHeight: 44)
-                                    .background(notes[i] % 12 == pc ? CleanStyle.orange.opacity(0.2) : CleanStyle.silver.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
+                                    .background(notes[i] % 12 == pc ? style.orange.opacity(0.2) : style.silver.opacity(0.3), in: RoundedRectangle(cornerRadius: 8))
                             }.disabled(!(21...89).contains(target)).accessibilityIdentifier("pitch-class-\(pc)")
                         }
                     }
                     HStack {
-                        Text("Octave").font(.system(size: 13)).foregroundStyle(CleanStyle.muted)
+                        Text("Octave").font(.system(size: 13)).foregroundStyle(style.muted)
                         Spacer()
                         Button { notes[i] -= 12 } label: { Image(systemName: "minus").frame(width: 44, height: 44).contentShape(Rectangle()) }
                             .disabled(notes[i] - 12 < 21).accessibilityLabel("Lower octave")
@@ -63,7 +65,8 @@ struct TuningEditor: View {
             }
             Button { save(editing ? original.id : nil, name, notes); dismiss() } label: {
                 Text("Save tuning").font(.system(size: 16, weight: .medium)).frame(maxWidth: .infinity, minHeight: 54)
-                    .background(valid ? CleanStyle.orange : CleanStyle.silver, in: RoundedRectangle(cornerRadius: 12))
+                    .foregroundStyle(valid ? style.face : style.muted)
+                    .background(valid ? style.orange : style.silver, in: RoundedRectangle(cornerRadius: 12))
             }.disabled(!valid).accessibilityIdentifier("saveTuning")
             if editing {
                 if confirmDelete {
@@ -73,7 +76,7 @@ struct TuningEditor: View {
                 }
             }
             Text("Targets include the octave. Choose pitches suited to your instrument and strings.")
-                .font(.system(size: 12)).foregroundStyle(CleanStyle.muted).padding(.top, 8)
+                .font(.system(size: 12)).foregroundStyle(style.muted).padding(.top, 8)
         }.scrollDismissesKeyboard(.interactively)
     }
 }
