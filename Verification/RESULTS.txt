@@ -1,0 +1,83 @@
+Clean Tuner — implementation verification, 2026-10-02
+
+IMPLEMENTED
+Native SwiftUI / Canvas, iOS 17+. Approved neutral white, orange, geometric
+headstock aesthetic. All note labels, strings, tuning posts and pitch arc geometry
+are drawn by code. App icon included. No generated raster UI backgrounds.
+Chromatic / Guitar / Ukulele, 10 instrument tuning presets, auto string detection,
+manual string lock, chromatic target hold, 420–460 Hz calibration, A4 reference
+sound, microphone pause/resume controls, permission recovery UI, lifecycle handling.
+
+BUILD
+Debug iOS Simulator: PASS.
+Release physical iOS device SDK, arm64, optimized, unsigned: PASS.
+Signing team is intentionally unset; choose a team in Xcode for an actual device.
+Only build warning is skipped optional AppIntents metadata extraction.
+
+ALGORITHM
+1,860 deterministic signal cases passed with zero misses or threshold failures.
+44.1 and 48 kHz; MIDI 28–89; -30, 0, +30 cents; 8192 samples per window.
+Waveforms: sine, harmonic rich, weak fundamental, exponential decay, ~30dB SNR.
+Maximum error across this test set: 0.48251 cents (noisy signal).
+Clean cases maximum: 0.02618 cents. Decay maximum: 0.17992 cents.
+Silence, DC, broadband noise, invalid data, preset mapping, tuning-reference
+round trips, manual target lock and note-boundary hysteresis assertions passed.
+Full numerical output: pitch-benchmark.txt.
+This is NOT an absolute microphone-accuracy or TonalEnergy comparison result.
+
+PIPELINE
+PASS: synthesized harmonic PCM buffers pass through the same AnalysisPipeline
+used by AVAudioEngine, produce A2 at -8.0 cents in the actual UI, and clear after
+silence. Fixture emits no sound and is Debug-only.
+Replaced scalar DSP hot loops with Accelerate vector routines after detecting
+Debug processing overruns. Measured single-window analysis on this Mac:
+approximately 177 ms before vs 8 ms after (unoptimized Debug, 110 Hz signal).
+Audio sample-time continuity is checked; skipped buffers cannot be stitched into
+a false waveform. Release synthetic corpus runs in approximately 3.7 seconds.
+
+UI / INTEGRATION
+Full 6-test run: 5 PASS, 1 FAIL. Final audio-queue microphone retest also failed.
+After the final lifecycle fixes, all five non-hardware regression tests passed
+again; the known failing microphone test was excluded from that regression run.
+This exclusion is not a microphone pass.
+PASS: instrument switching, Drop D / Low G, manual string lock / return to auto.
+PASS: chromatic target hold / release, reference calibration and Settings.
+PASS: silence UI and injected permission-denied recovery UI.
+PASS: ukulele in-tune state and correct reentrant high-G string order.
+PASS: real PCM analysis fixture through displayed pitch and silence clearing.
+FAIL / UNRESOLVED: actual simulator microphone startup/lifecycle.
+The app process aborts inside CoreAudio with:
+  Initialize: RPC timeout. Apparently deadlocked. Aborting now.
+Reproduced on iOS 26.3 iPhone 16e and iOS 18.2 iPhone SE simulators, both record
+and playAndRecord measurement sessions; audio session is explicitly activated.
+Restarting the test simulator and serializing hardware setup/teardown on a
+background audio queue did not resolve it. The root cause is not established. Physical input accuracy,
+hardware start/pause/resume, interruptions and reference-tone output have NOT
+been verified on a physical device. Do not mark this hardware test passed.
+Similar simulator failure reports (not proof of this app's physical-device behavior):
+https://developer.apple.com/forums/thread/738346
+
+LAYOUT
+Inspected rendered screenshots on iPhone 16e, iPhone SE (375-point screen), and
+iPad mini. Corrected top note clipping and shortened the headstock on small
+screens so footer controls remain accessible. Content remains scrollable.
+Screenshots with PREVIEW in the footer are native UI rendered from explicit test
+readings, not live microphone evidence. The UI tests retain accessibility labels
+for all selectable strings, controls, pitch readout and calibration.
+
+REPRODUCTION
+Open TheTuner.xcodeproj; scheme TheTuner.
+Run Scripts/verify.sh for the DSP corpus. See RUNNING.txt for simulator test and
+preview arguments. The microphone lifecycle test needs actual working simulator
+audio and permission; it remains a visible failure in the current environment.
+
+NEXT HARDWARE ACCEPTANCE
+Run on a signed physical iPhone, confirm microphone starts and resumes, and compare
+known-frequency signals and actual guitar/ukulele notes under noise/decay. Check
+latency, octave errors, long-tone jitter, route changes and reference output.
+No production precision/parity claim should be based solely on this synthetic set.
+
+DEVICE INSTALLATION — 2026-10-03
+Signed Release build installed successfully on the user’s iPhone 14 Pro and
+launched via devicectl. This confirms installation and launch, not microphone
+accuracy or completion of the hardware acceptance checks above.

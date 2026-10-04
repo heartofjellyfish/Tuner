@@ -1,0 +1,40 @@
+{
+  "status": "Research and design proposal, not implemented",
+  "design": "Warm frosted champagne; chromatic concentric target feedback; guitar/ukulele instrument diagrams with selectable strings; listening as status with automatic foreground input after permission.",
+  "sources": [
+    "https://www.tonalenergy.com/tet-user-guide-ios",
+    "https://support.yousician.com/hc/en-us/articles/360014233198-How-to-change-tunings-and-other-tuner-options",
+    "https://support.fender.com/hc/en-us/articles/42912844750619-What-s-a-chromatic-tuner",
+    "https://kalabrand.com/blogs/home/ukulele-tuning-decoded",
+    "https://pubmed.ncbi.nlm.nih.gov/12002874/",
+    "https://quod.lib.umich.edu/i/icmc/bbp2372.2005.107/1/--smarter-way-to-find-pitch?page=root%3Bsize%3D75%3Bview%3Dtext",
+    "https://developer.apple.com/documentation/avfaudio/avaudiosession/mode-swift.struct/measurement"
+  ],
+  "instrument_presets_proposed": {
+    "guitar": [
+      "Standard",
+      "Drop D",
+      "Half-step down",
+      "DADGAD",
+      "Open G",
+      "Custom"
+    ],
+    "ukulele": [
+      "High G: G4 C4 E4 A4",
+      "Low G: G3 C4 E4 A4",
+      "Baritone: D3 G3 B3 E4"
+    ]
+  },
+  "ring_semantics": "Sharp upper arc, flat lower arc. Settled in-tune center confirmation. No rotation implying strobe. Separate tolerance from measurement accuracy.",
+  "precision_strategy": "Compare YIN and MPM baselines, refine periodicity estimates at adequate sample resolution, evaluate octave alternatives and temporal confidence, reject noise instead of inventing pitch. Test audio capture and real instruments. No unverified claim of TonalEnergy parity.",
+  "current_risks": "40–1500 Hz range; fixed threshold and first qualifying minimum; simple decimation and median UI filter. Prior benchmark found >10-cent sine errors and octave errors; root causes not yet isolated.",
+  "difficulty_assessment": "Known signal processing problem, feasible for scoped monophonic guitar/ukulele; robust cross-instrument and cross-device quality is substantial engineering and validation.",
+  "concept_file": "Design/tuner-instrument-modes-concept.png",
+  "concept_corrections_required": [
+    "Remove duplicate settings control and oversized footer buttons.",
+    "Correct guitar physical peg/string mapping before implementation; render diagram with deterministic vector geometry.",
+    "Show sharp and flat ring states separately; static centered concept does not validate interaction."
+  ],
+  "image_tool": "Built-in image_gen",
+  "image_prompt_summary": "Three complete screens retaining warm champagne frosted material. Chromatic target ring; guitar 3+3 headstock with six note badges; ukulele 2+2 headstock with four badges. Instrument and tuning selection, listening status rather than button, minimal reference and settings actions."
+}

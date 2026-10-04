@@ -1,0 +1,8 @@
+{
+  "tool": "Built-in image_gen",
+  "status": "Visual concept; exact pitch geometry and animated note transitions require deterministic prototype.",
+  "user_direction": "Open rainbow-shaped local pitch arc, illuminate three or four nearby notes, omit rest; TonalEnergy screenshot is functional reference, not aesthetic reference.",
+  "prompt": "Premium warm frosted champagne silver and off-white glass tuner. Open inverted-U local pitch arch, only G#4 A4 A#4. Soft amber light near A, fine pitch marker slightly left for -18 cents, A4 and 435.4 Hz below. Left LOWER, right HIGHER. No complete circle, smiley, twelve-note wheel or neon colors. Listening is status; small reference tone entry.",
+  "interaction": "Left lower/right higher. Equal pitch steps map to equal arc-length intervals; continuous pitch marker. Shift visible neighborhood smoothly at note changes, with hysteresis for target label stability. Preserve octave through B/C. Unreliable signal dims marker and clears live readings.",
+  "file": "Design/chromatic-local-arch-concept.png"
+}

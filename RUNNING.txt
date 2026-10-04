@@ -1,0 +1,41 @@
+Clean Tuner — native SwiftUI app, iOS 17+
+
+Open TheTuner.xcodeproj in Xcode and run the TheTuner scheme.
+No package dependencies, server, API keys, or account are required.
+For a physical iPhone, choose your signing team in Signing & Capabilities.
+The simulator build is at build/Build/Products/Debug-iphonesimulator/TheTuner.app.
+
+The approved white / orange geometric-instrument design is implemented in SwiftUI
+and Canvas. Generated concept PNGs are references only, not stretched UI assets.
+
+Modes: Chromatic, Guitar, Ukulele.
+Guitar: Standard, Drop D, half step down, DADGAD, Open G, Open D.
+Ukulele: High G, Low G, Baritone, D tuning.
+Microphone starts automatically after permission. Tap a string to lock its target;
+tap again or AUTO to release. Chromatic supports holding the current target.
+Tap the A4 footer to calibrate 420–460 Hz. Reference tones and microphone pause
+are available in Settings. Equal temperament; in-tune indication is ±3 cents.
+
+Verification:
+  Scripts/verify.sh
+  TUNER_SIMULATOR_ID=<device UUID> Scripts/verify.sh
+The microphone lifecycle UI test needs microphone permission on its simulator.
+The other tests use explicit Debug-only fixtures, never artificial Release readings.
+
+Debug-only launch arguments for repeatable screenshots/tests:
+  --reset --preview             Guitar A2, -8 cents; footer says PREVIEW
+  --reset --preview --ukulele   Ukulele C4 in tune
+  --reset --preview --chromatic Chromatic A4, -8 cents
+  --silent                     Silent UI fixture
+  --denied                     Microphone-denied UI fixture
+  --signal-test                Real PCM analysis fixture followed by silence
+
+Limitations:
+Synthetic accuracy is not a guarantee of microphone accuracy. Validate with real
+instruments and phones before making professional accuracy claims. Monophonic
+40–1500 Hz; polyphonic/chord analysis, stretched piano tuning, transposition and
+custom temperaments are outside this version. No TonalEnergy parity claim.
+
+Current verification limitation: actual microphone startup aborts inside CoreAudio
+on this Mac’s simulators. Use --preview for visual review; physical-device audio
+acceptance remains required. See Verification/RESULTS.txt for exact test scope.

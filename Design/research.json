@@ -1,0 +1,81 @@
+{
+  "date": "2026-10-02",
+  "status": "Research revision; implementation prototype compiles but is not accuracy-qualified or visually verified.",
+  "design_authority": "User wants clearly recognizable analog tuner, contemporary rather than old, warm, ultra-premium subtle materials and details, simple with few visible functions. Supersedes cold silver circular-disc concept.",
+  "method": "Qualitative reading of public App Store featured reviews, a Reddit discussion, vendor documentation. Not a representative statistical sample; no complaint prevalence inferred. Historical complaints do not prove current defects.",
+  "competitors": [
+    {
+      "name": "TonalEnergy",
+      "url": "https://apps.apple.com/us/app/tonalenergy-tuner-metronome/id497716362",
+      "positive": "Comprehensive practice tool, drones, instrument modes, temperament support; 2025 review acknowledges learning curve but strongly praises value.",
+      "complaint": "2018 review: jumpy target display and difficult-to-find string mode. Historical only.",
+      "current_correction": "Current iOS guide has Bar display, optional smiley, instrument-specific damping and string tuner from Tuner tab.",
+      "guide": "https://www.tonalenergy.com/tet-user-guide-ios"
+    },
+    {
+      "name": "GuitarTuna",
+      "url": "https://apps.apple.com/us/app/guitartuna-tune-play-guitar/id527588389",
+      "positive": "Beginner-friendly string guidance.",
+      "complaint": "2023 and 2024 reviews object to subscriptions for tunings, additional lessons/content, startup popups. December 2024 review reports microphone permission difficulty but later reports recovery."
+    },
+    {
+      "name": "Fender Tune",
+      "url": "https://apps.apple.com/us/app/fender-tune-guitar-tuner-app/id1107017950?platform=ipad&see-all=reviews",
+      "positive": "Free tuning and helpful direction prompts; Reddit includes long-term satisfied users.",
+      "complaint": "2021/2024 reviews report automatic string identification instability and request manual target choice. These are unverified user experiences, not measured accuracy defects."
+    },
+    {
+      "name": "Tunable",
+      "url": "https://apps.apple.com/us/app/tunable-tuner-metronome/id608540795",
+      "positive": "Readable pitch history, adjustable precision view, recording and practice tools; one-time purchase per official about page.",
+      "complaint": "Insufficient primary-source negative evidence in reviewed sample to assert a recurring current problem. Strong direct competitor."
+    },
+    {
+      "name": "Pano Tuner",
+      "url": "https://apps.apple.com/us/app/pano-tuner-chromatic-tuner/id348094874",
+      "positive": "Fast, simple, cross-instrument, paid edition no ads. Strong direct competitor to minimalist positioning.",
+      "complaint": "Current release notes discuss Bluetooth and interruption recovery fixes; fixes are not evidence these bugs remain."
+    },
+    {
+      "name": "iStroboSoft",
+      "url": "https://apps.apple.com/us/app/istrobosoft/id308296029",
+      "positive": "Professional strobe, fine intonation use, large tablet display. Manufacturer claims 0.1-cent accuracy.",
+      "complaint": "2020 low-E jumping report; 2023 upside-down rotation complaint; June 1 review with year omitted reports octave jumps and audio-interface input failure. 2024 positive review explains strobe learning curve. Claims not independently reproduced."
+    },
+    {
+      "name": "Zen Tuner",
+      "url": "https://apps.apple.com/us/app/zen-tuner/id1550640624",
+      "positive": "Free minimalist chromatic tuning with transposition; proves minimalism alone is not differentiation.",
+      "complaint": "2022 Mac USB audio-interface complaint; not evidence of iOS defect."
+    },
+    {
+      "name": "Cleartune",
+      "url": "https://apps.apple.com/us/app/cleartune/id286799607?platform=ipad",
+      "positive": "Dedicated tuner with loyal long-term users and reference tones.",
+      "complaint": "2017 review objects to removed controls and changed workflow; historical regression lesson, not verified current bug."
+    }
+  ],
+  "community_url": "https://www.reddit.com/r/AcousticGuitar/comments/1hyoth3/is_there_a_single_tuner_app_in_existence_that_i/",
+  "positioning_hypothesis": "A trustworthy everyday tuning instrument for musicians: fast entry, readable and honest pitch feedback, minimal interruption, coherent Clean series industrial design. No ads/subscription is a baseline, not unique.",
+  "precision_baseline": {
+    "test": "Tests/PitchBenchmark.swift",
+    "results": "Design/pitch-baseline.txt",
+    "conditions": "1116 synthetic stationary windows, MIDI 28–89, offsets -30/0/+30 cents, 44.1/48 kHz, 8192 samples; three waveforms; no mic, room noise, dynamics, latency or competitor comparison.",
+    "finding": "Pure sine p95 5.03 cents and max 10.29; harmonic conditions include octave errors near 1200 cents. Current prototype cannot claim TonalEnergy parity."
+  },
+  "proposed_quality_gates_not_achieved": [
+    "Synthetic steady-tone p95 <=0.5 cent in declared supported range, with no octave errors in regression corpus.",
+    "Measure correct-note acquisition time, steady-state error, jitter and silence false positives on real instruments.",
+    "Run matched-device matched-signal comparison against TonalEnergy and Tunable with same A4, temperament, transposition, and documented damping.",
+    "Use independent known signal/reference to measure error, not only agreement between apps.",
+    "Cover low strings, weak fundamental, pluck attack/decay, vibrato, ambient noise, route changes, and 44.1/48 kHz."
+  ],
+  "product_revisions": [
+    "Prioritize the pitch display and trustworthy lock over a large calibration block.",
+    "Instrument selection should not privilege guitar if claiming musician utility; include manual target lock.",
+    "Consider Tune and Sustain display modes only when backed by user needs; avoid a practice-suite expansion.",
+    "No claim of best accuracy, noise immunity or professional piano tuning.",
+    "A4-only tone and standard-guitar-only presets are prototype limitations, not final scope decisions."
+  ],
+  "latest_concept": "Design/tuner-warm-analog-concept.png"
+}

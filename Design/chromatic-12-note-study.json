@@ -1,0 +1,9 @@
+{
+  "tool": "Built-in image_gen",
+  "status": "Material and layout concept only; generated marker positions and direction glyphs are approximate and must be defined with exact geometry in interactive prototype.",
+  "user_direction": "All 12 pitch classes have fixed positions, establish lower/higher direction and light the few notes around current pitch using the prior warm light treatment.",
+  "mapping": "Clockwise ascending semitones, A at noon. 30 degrees per semitone, 0.3 degrees per cent. A -30 cents must be -9 degrees from noon. B to C crosses octave boundary, with octave shown at center.",
+  "behavior": "Keep labels fixed, light nearest note and neighbors, continuous pitch marker, signed cents. Do not rotate note labels on transitions. Use hysteresis only on selected label, never distort marker pitch.",
+  "prompt_summary": "Three matched FLAT -30ct, IN TUNE 0ct, SHARP +30ct panels. Twelve fixed note labels clockwise A A# B C C# D D# E F F# G G#. Warm frosted champagne silver, creamy glass, hairline seams. Local warm amber glow around current and adjacent notes. Thin luminous pitch dash and short arc, no whole-ring glow, no gold perimeter.",
+  "file": "Design/chromatic-12-note-study.png"
+}

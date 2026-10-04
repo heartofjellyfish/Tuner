@@ -1,0 +1,9 @@
+build/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+*.xcresult/
+Verification/*-attachments/
+Verification/*.log
+Verification/microphone-*.png
+Verification/guitar-first.png
