@@ -28,7 +28,8 @@ struct InstrumentHeadLayout {
         }
         if shortDrone && i == 0 { return point(0.39, 0.94) }
         if inlineBass {
-            return point(0.53, 0.18 + CGFloat(count - 1 - i) * 0.58 / CGFloat(max(1, count - 1)))
+            let row = CGFloat(count - 1 - i) / CGFloat(max(1, count - 1))
+            return point(0.56 - row * 0.15, 0.18 + row * 0.58)
         }
         let side = left(i)
         let row: Int
@@ -83,10 +84,15 @@ struct InstrumentHeadDrawing: View {
                 BowedHeadstockArtwork.draw(in: &carved, layout: layout, style: style)
             } else {
                 if layout.inlineBass {
-                    outline.move(to: p(0.43, 0.72))
-                    outline.addCurve(to: p(0.50, 0.07), control1: p(0.34, 0.44), control2: p(0.42, 0.06))
-                    outline.addCurve(to: p(0.66, 0.23), control1: p(0.68, 0.02), control2: p(0.72, 0.14))
-                    outline.addCurve(to: p(0.59, 0.76), control1: p(0.55, 0.38), control2: p(0.66, 0.56))
+                    // Slanted tuner rail, rounded crown and scooped treble shoulder.
+                    outline.move(to: p(0.41, layout.nutY))
+                    outline.addCurve(to: p(0.32, 0.83), control1: p(0.41, 0.85), control2: p(0.30, 0.88))
+                    outline.addLine(to: p(0.47, 0.14))
+                    outline.addCurve(to: p(0.60, 0.045), control1: p(0.49, 0.065), control2: p(0.53, 0.025))
+                    outline.addCurve(to: p(0.70, 0.19), control1: p(0.69, 0.055), control2: p(0.75, 0.13))
+                    outline.addCurve(to: p(0.62, 0.35), control1: p(0.67, 0.24), control2: p(0.61, 0.26))
+                    outline.addCurve(to: p(0.69, 0.70), control1: p(0.62, 0.48), control2: p(0.71, 0.60))
+                    outline.addCurve(to: p(0.59, layout.nutY), control1: p(0.68, 0.79), control2: p(0.59, 0.80))
                 } else {
                     outline.move(to: p(0.29, 0.13))
                     switch instrument {
@@ -125,7 +131,9 @@ struct InstrumentHeadDrawing: View {
                     let drone = layout.shortDrone && i == 0
                     let side = layout.inlineBass || layout.left(i)
                     let handleX: CGFloat = drone ? 0.29 : side ? (instrument.bowed ? 0.29 : layout.inlineBass ? 0.34 : 0.28) : (instrument.bowed ? 0.76 : 0.72)
-                    let handle = instrument.bowed ? layout.target(i) : CGPoint(x: p(handleX, 0).x, y: post.y)
+                    let handle = instrument.bowed ? layout.target(i) : layout.inlineBass
+                        ? CGPoint(x: post.x - 82 * layout.artScale, y: post.y - 15 * layout.artScale)
+                        : CGPoint(x: p(handleX, 0).x, y: post.y)
                     if !instrument.bowed {
                         var axle = Path(); axle.move(to: post); axle.addLine(to: handle); stroke(axle, style.muted, 1)
                     }
@@ -152,11 +160,13 @@ struct InstrumentHeadDrawing: View {
                     if instrument == .bass {
                         var clover = Path()
                         func c(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: handle.x + x * layout.artScale, y: handle.y + y * layout.artScale) }
-                        clover.move(to: c(0, -12))
-                        clover.addCurve(to: c(-13, -3), control1: c(-12, -21), control2: c(-24, -8))
-                        clover.addCurve(to: c(-3, 13), control1: c(-25, 8), control2: c(-13, 24))
-                        clover.addCurve(to: c(13, 3), control1: c(8, 26), control2: c(25, 13))
-                        clover.addCurve(to: c(0, -12), control1: c(25, -9), control2: c(12, -23))
+                        // Three rounded lobes with a short stem, rather than a four-petal flower.
+                        clover.move(to: c(16, -5))
+                        clover.addCurve(to: c(7, -17), control1: c(7, -6), control2: c(11, -13))
+                        clover.addCurve(to: c(-12, -11), control1: c(-2, -30), control2: c(-20, -24))
+                        clover.addCurve(to: c(-17, 12), control1: c(-33, -15), control2: c(-35, 8))
+                        clover.addCurve(to: c(7, 17), control1: c(-18, 31), control2: c(2, 32))
+                        clover.addCurve(to: c(16, 5), control1: c(11, 13), control2: c(7, 6))
                         clover.closeSubpath()
                         context.fill(clover, with: .color(style.face)); stroke(clover, style.ink.opacity(0.9), 1)
 

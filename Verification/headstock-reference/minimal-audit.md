@@ -16,3 +16,8 @@ All eight existing native screenshots were inspected at artwork scale before edi
 No target positions, tap regions, outer dimensions or detection behavior change. Selected bowed pegs use their existing contour for the accent instead of an additional concentric ring. Completion checkmarks remain.
 
 Validation: a fresh simulator build passed all eight instrument target/lock/unlock checks and exported all eight reference screens (2 tests, 0 failures). Each exported artwork was visually inspected after the changes. Release device build passed. An initial incremental run executed stale test code; a separate derived-data directory resolved that mismatch without changing assertions.
+
+## Contour correction
+The bass now follows the reference's diagonal tuner rail, rounded crown and scooped shoulder; posts follow that rail so strings fall naturally toward the nut. Clover keys use three lobes and a stem rather than four flower petals. Bowed instruments now share continuous boundaries between shaded faces and inked contours, removing the old carved-slice seams. The scroll-to-pegbox join was checked again after correcting a small left-side gap.
+
+Validation: all instrument target checks, extended bass targets and reference captures passed (3 tests). Final join-only correction passed reference captures again. Final violin and bass artwork were inspected from XCTest screenshots. Release build passed.
