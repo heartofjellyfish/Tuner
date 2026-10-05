@@ -127,7 +127,7 @@ final class TunerUITests: XCTestCase {
                 let string = app.buttons["string-\(notes.count - index)"]
                 XCTAssertTrue(string.label.contains(note), "\(name): \(note)")
                 XCTAssertTrue(string.isHittable, "\(name): \(note)")
-                XCTAssertGreaterThanOrEqual(string.frame.height, 44)
+                XCTAssertGreaterThanOrEqual(string.frame.height, 44 - 0.01) // CGRect floating-point rounding.
                 XCTAssertLessThanOrEqual(string.frame.maxY, app.frame.maxY)
                 string.tap()
                 XCTAssertTrue((string.value as? String)?.contains("Locked") == true)
@@ -156,6 +156,40 @@ final class TunerUITests: XCTestCase {
             }
             screenshot("headstock-bass-\(count)-strings")
         }
+    }
+    func testReferenceHeadstockScreens() {
+        let examples = [("Guitar", 45), ("Ukulele", 60), ("Bass", 33), ("Violin", 69),
+                        ("Viola", 48), ("Cello", 50), ("Banjo", 67), ("Mandolin", 69)]
+        for (name, midi) in examples {
+            launch(["--instrument", name, "--midi", String(midi), "--cents", "0"])
+            let artwork = app.otherElements["headstockArtwork"]
+            XCTAssertTrue(artwork.exists)
+            screenshot("reference-\(name)")
+            let attachment = XCTAttachment(screenshot: artwork.screenshot())
+            attachment.name = "artwork-\(name)"; attachment.lifetime = .keepAlways; add(attachment)
+            let f = artwork.frame
+            let metadata = XCTAttachment(string: "{\"name\":\"\(name)\",\"x\":\(f.minX),\"y\":\(f.minY),\"width\":\(f.width),\"height\":\(f.height),\"screenWidth\":\(app.frame.width)}")
+            metadata.name = "geometry-\(name)"; metadata.lifetime = .keepAlways; add(metadata)
+            app.terminate()
+        }
+    }
+    func testCustomBowedHeadstockTargets() {
+        launch(["--instrument", "Violin", "--midi", "69", "--cents", "0"])
+        app.buttons["tuningMenu"].tap()
+        app.buttons["newCustom"].tap()
+        app.textFields["tuningName"].tap()
+        app.textFields["tuningName"].typeText("Five strings\n")
+        app.buttons["Add string"].tap()
+        tapVisible(app.buttons["saveTuning"])
+        app.buttons["close-Tuning"].tap()
+        for number in 1...5 {
+            let string = app.buttons["string-\(number)"]
+            XCTAssertTrue(string.isHittable)
+            string.tap()
+            XCTAssertTrue((string.value as? String)?.contains("Locked") == true)
+            app.buttons["autoString"].tap()
+        }
+        screenshot("custom-five-string-bowed-headstock")
     }
     func testChromaticRingStatesAndLayout() {
         for (offset, expected) in [("-25", "A4"), ("-8", "A4"), ("0", "A4"), ("25", "A4"), ("75", "A♯4")] {

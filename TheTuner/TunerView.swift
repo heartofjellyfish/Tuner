@@ -23,20 +23,18 @@ struct TunerView: View {
                     chromaticMeter
                     Spacer(minLength: 16)
                 } else {
-                    Spacer(minLength: 0)
-                    meter(readoutHeight: min(142, geo.size.height * 0.17), arcHeight: min(132, geo.size.height * 0.17))
-                    Group {
+                    meter(readoutHeight: min(116, geo.size.height * 0.15), arcHeight: min(120, geo.size.height * 0.19))
+                    Color.clear.frame(height: 12).overlay {
                         if model.lockedIndex != nil {
                             Button { model.automatic() } label: {
                                 Label("AUTO", systemImage: "lock.open").technical(9)
                                     .frame(minWidth: 100, minHeight: 44).contentShape(Rectangle())
                             }.buttonStyle(.plain).accessibilityIdentifier("autoString")
                                 .accessibilityLabel("Unlock string, return to automatic")
-                        } else { Color.clear.frame(height: 44).accessibilityHidden(true) }
+                        }
                     }
                     Headstock(instrument: model.instrument, notes: model.notes, selected: model.selectedIndex, locked: model.lockedIndex, inTune: model.inTune, completed: model.progress.completed,
                               lastCompleted: model.lastCompletedIndex, successCount: model.successCount, select: model.selectString)
-                        .aspectRatio(model.notes.count > 6 ? 1.0 : 1.1, contentMode: .fit)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(.horizontal, 8).opacity(model.isHeld ? 0.55 : 1)
                 }

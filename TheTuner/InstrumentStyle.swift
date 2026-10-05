@@ -185,6 +185,7 @@ struct Headstock: View {
     private func stringWidth(_ index: Int) -> CGFloat {
         let position = CGFloat(notes.count - 1 - index) / CGFloat(max(1, notes.count - 1))
         switch instrument {
+        case .violin, .viola, .cello: return 0.65 + position * 0.75
         case .bass: return 1.1 + position * 2.7
         case .ukulele:
             let low = notes.min() ?? 0, high = notes.max() ?? 0
@@ -227,7 +228,7 @@ struct Headstock: View {
                         .accessibilityValue(completed.contains(i) ? (locked == i ? "Tuned, Locked" : "Tuned") : locked == i ? "Locked" : selected == i ? "Detected" : "Automatic")
                         .accessibilityAddTraits(selected == i ? .isSelected : [])
                 }
-            }
+            }.accessibilityElement(children: .contain).accessibilityIdentifier("headstockArtwork")
         }
         .task(id: successCount) {
             guard successCount > 0, !reduceMotion else { return }

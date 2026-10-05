@@ -216,6 +216,10 @@ private final class AudioDriver {
         }
         if args.contains("--preview") {
             demo = true
+            if let index = args.firstIndex(of: "--instrument"), index + 1 < args.count,
+               let value = Instrument(rawValue: args[index + 1]) {
+                instrument = value; tuningID = value.tunings.first?.id ?? "standard"
+            }
             if args.contains("--ukulele") { instrument = .ukulele; tuningID = "high-g" }
             if args.contains("--chromatic") { instrument = .chromatic }
             let target = args.firstIndex(of: "--midi").flatMap { $0 + 1 < args.count ? Int(args[$0 + 1]) : nil } ?? (instrument == .ukulele ? 60 : instrument == .chromatic ? 69 : 45)
