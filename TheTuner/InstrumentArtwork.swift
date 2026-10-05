@@ -61,6 +61,20 @@ struct InstrumentHeadLayout {
         if instrument == .mandolin { return CGPoint(x: post.x, y: (post.y + self.post(i, member: 1).y) / 2) }
         return post
     }
+    // The shaft follows the normal of the inline bass rail, rather than a separate tilt.
+    var machineTilt: CGFloat { inlineBass ? atan2(0.15, 0.69) : 0 }
+    func machineHandle(_ i: Int, member: Int = 0) -> CGPoint {
+        let post = post(i, member: member)
+        if instrument.bowed { return target(i) }
+        if shortDrone && i == 0 { return point(0.29, 0.94) }
+        if inlineBass {
+            return CGPoint(x: post.x - 82 * cos(machineTilt) * artScale,
+                           y: post.y - 82 * sin(machineTilt) * artScale)
+        }
+        // Leave the whole button outside the widest part of the headstock.
+        let leftX: CGFloat = instrument == .bass ? 0.25 : 0.24
+        return CGPoint(x: point(left(i) ? leftX : 1 - leftX, 0).x, y: post.y)
+    }
     func stringX(_ i: Int, member: Int = 0) -> CGFloat {
         if instrument.bowed { return artPoint(194 + CGFloat(i) * 57 / CGFloat(max(1, count - 1)), 369).x }
         return point(0.407 + CGFloat(i) * 0.186 / CGFloat(max(1, count - 1)), 0).x
@@ -139,10 +153,7 @@ struct InstrumentHeadDrawing: View {
                     let post = layout.post(i, member: member)
                     let drone = layout.shortDrone && i == 0
                     let side = layout.inlineBass || layout.left(i)
-                    let handleX: CGFloat = drone ? 0.29 : side ? (instrument.bowed ? 0.29 : layout.inlineBass ? 0.34 : 0.28) : (instrument.bowed ? 0.76 : 0.72)
-                    let handle = instrument.bowed ? layout.target(i) : layout.inlineBass
-                        ? CGPoint(x: post.x - 82 * layout.artScale, y: post.y - 15 * layout.artScale)
-                        : CGPoint(x: p(handleX, 0).x, y: post.y)
+                    let handle = layout.machineHandle(i, member: member)
                     if !instrument.bowed {
                         var axle = Path(); axle.move(to: post); axle.addLine(to: handle); stroke(axle, style.muted, 1)
                     }
@@ -169,16 +180,20 @@ struct InstrumentHeadDrawing: View {
                     if instrument == .bass {
                         var clover = Path()
                         func c(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-                            CGPoint(x: handle.x + x * (side ? 1 : -1) * layout.artScale,
-                                    y: handle.y + y * layout.artScale)
+                            let mirroredX = x * (side ? 1 : -1)
+                            let angle = layout.machineTilt
+                            return CGPoint(x: handle.x + (mirroredX * cos(angle) - y * sin(angle)) * layout.artScale,
+                                           y: handle.y + (mirroredX * sin(angle) + y * cos(angle)) * layout.artScale)
                         }
-                        // Three rounded lobes with a short stem, rather than a four-petal flower.
+                        // Top and bottom lobes mirror exactly about the shaft's centerline.
                         clover.move(to: c(16, -5))
-                        clover.addCurve(to: c(7, -17), control1: c(7, -6), control2: c(11, -13))
-                        clover.addCurve(to: c(-12, -11), control1: c(-2, -30), control2: c(-20, -24))
-                        clover.addCurve(to: c(-17, 12), control1: c(-33, -15), control2: c(-35, 8))
-                        clover.addCurve(to: c(7, 17), control1: c(-18, 31), control2: c(2, 32))
-                        clover.addCurve(to: c(16, 5), control1: c(11, 13), control2: c(7, 6))
+                        clover.addCurve(to: c(5, -19), control1: c(10, -5), control2: c(10, -14))
+                        clover.addCurve(to: c(-18, -16), control1: c(-2, -29), control2: c(-18, -28))
+                        clover.addCurve(to: c(-16, -9), control1: c(-18, -13), control2: c(-17, -10))
+                        clover.addCurve(to: c(-16, 9), control1: c(-38, -14), control2: c(-38, 14))
+                        clover.addCurve(to: c(-18, 16), control1: c(-17, 10), control2: c(-18, 13))
+                        clover.addCurve(to: c(5, 19), control1: c(-18, 28), control2: c(-2, 29))
+                        clover.addCurve(to: c(16, 5), control1: c(10, 14), control2: c(10, 5))
                         clover.closeSubpath()
                         context.fill(clover, with: .color(style.face)); stroke(clover, color, selected == i ? 1.4 : 1)
 
@@ -213,15 +228,18 @@ struct InstrumentHeadDrawing: View {
                 if !instrument.bowed {
                     var guide = Path()
                     let side = layout.left(i)
-                    let outerKeyX = p(side ? 0.28 : 0.72, 0).x
-                    let endpoint = instrument == .mandolin ? p(side ? 0.20 : 0.80, 0).x : layout.inlineBass ? p(0.72, 0).x
+                    let outerKeyX = layout.machineHandle(i).x
+                    let endpoint = instrument == .mandolin ? p(side ? 0.18 : 0.82, 0).x : layout.inlineBass ? p(0.72, 0).x
                         : outerKeyX + (side ? -1 : 1) * (instrument == .bass ? 39 : 20) * layout.artScale
                     guide.move(to: CGPoint(x: p(side ? 0.16 : 0.84, 0).x, y: target.y))
                     guide.addLine(to: CGPoint(x: endpoint, y: target.y))
-                    stroke(guide, style.muted.opacity(0.7), 0.7)
+                    // The wide bass keys already sit next to their labels; a tiny leader adds clutter.
+                    if instrument != .bass || layout.inlineBass {
+                        stroke(guide, style.muted.opacity(0.7), 0.7)
+                    }
                     if instrument == .mandolin {
                         // A quiet bracket groups two physical strings under one course label.
-                        let bracketX = p(side ? 0.20 : 0.80, 0).x
+                        let bracketX = p(side ? 0.18 : 0.82, 0).x
                         let first = layout.post(i), second = layout.post(i, member: 1)
                         let arm = (side ? 1.0 : -1.0) * 4 * layout.artScale
                         var bracket = Path()
