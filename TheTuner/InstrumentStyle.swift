@@ -181,8 +181,6 @@ struct Headstock: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var haloProgress: CGFloat = 1
     let select: (Int) -> Void
-    private var guitar: Bool { instrument == .guitar || instrument == .bass }
-    private var half: Int { (notes.count + 1) / 2 }
     /// Nominal visual gauges: preserve physical string order when changing guitar tuning.
     private func stringWidth(_ index: Int) -> CGFloat {
         let position = CGFloat(notes.count - 1 - index) / CGFloat(max(1, notes.count - 1))
@@ -197,91 +195,15 @@ struct Headstock: View {
         default: return 0.8 + position * 2.0
         }
     }
-    private func peg(_ index: Int, size: CGSize) -> CGPoint {
-        let half = self.half
-        let left = index < half
-        let row = left ? half - 1 - index : index - half
-        let rows = left ? half : notes.count - half
-        let y = rows == 1 ? 0.46 : 0.20 + CGFloat(row) * 0.52 / CGFloat(rows - 1)
-        if instrument == .banjo && notes.count == 5 && index == 0 {
-            return CGPoint(x: size.width * 0.32, y: size.height * 0.81)
-        }
-        return CGPoint(x: size.width * (left ? 0.37 : 0.63), y: size.height * y)
-    }
     var body: some View {
         GeometryReader { geo in
             let size = geo.size
+            let layout = InstrumentHeadLayout(instrument: instrument, count: notes.count, size: size)
             ZStack {
-                Canvas { context, _ in
-                    func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: size.width * (0.5 + (x - 0.5) * 1.3), y: size.height * y) }
-                    var shape = Path()
-                    shape.move(to: p(0.34, 0.10))
-                    if guitar {
-                        shape.addCurve(to: p(0.66, 0.10), control1: p(0.49, -0.01), control2: p(0.51, -0.01))
-                    } else {
-                        shape.addQuadCurve(to: p(0.39, 0.03), control: p(0.34, 0.03))
-                        shape.addLine(to: p(0.61, 0.03))
-                        shape.addQuadCurve(to: p(0.66, 0.10), control: p(0.66, 0.03))
-                    }
-                    shape.addLine(to: p(0.64, 0.77))
-                    shape.addQuadCurve(to: p(0.60, 0.89), control: p(0.60, 0.83))
-                    shape.addLine(to: p(0.60, 1)); shape.addLine(to: p(0.40, 1))
-                    shape.addLine(to: p(0.40, 0.89))
-                    shape.addQuadCurve(to: p(0.36, 0.77), control: p(0.40, 0.83))
-                    shape.addLine(to: p(0.34, 0.10))
-                    shape.closeSubpath()
-
-                    if instrument.bowed {
-                        let scroll = Path(ellipseIn: CGRect(x: size.width * 0.43, y: 0, width: size.width * 0.14, height: size.height * 0.14))
-                        context.fill(scroll, with: .color(style.silver))
-                        context.stroke(scroll, with: .color(style.muted), lineWidth: 1.3)
-                        context.stroke(Path(ellipseIn: CGRect(x: size.width * 0.47, y: size.height * 0.04, width: size.width * 0.06, height: size.height * 0.06)), with: .color(style.muted), lineWidth: 1)
-                    }
-                    context.stroke(shape, with: .color(style.ink.opacity(0.8)), lineWidth: 1.1)
-
-                    let nut = CGRect(x: size.width * 0.37, y: size.height * 0.89, width: size.width * 0.26, height: 7)
-
-                    context.stroke(Path(nut), with: .color(style.muted), lineWidth: 0.7)
-                    for i in notes.indices {
-                        let post = peg(i, size: size)
-                        let isLeft = i < half
-                        let outerX = size.width * (isLeft ? 0.16 : 0.84)
-                        var stem = Path(); stem.move(to: post); stem.addLine(to: CGPoint(x: outerX, y: post.y))
-                        context.stroke(stem, with: .color(style.muted), lineWidth: 1)
-                        let endX = size.width * (0.383 + CGFloat(i) / CGFloat(notes.count - 1) * 0.234)
-                        var string = Path(); string.move(to: post)
-                        string.addLine(to: CGPoint(x: endX, y: size.height * 0.89))
-                        string.addLine(to: CGPoint(x: endX, y: size.height))
-
-                        if selected == i {
-                            context.drawLayer { glow in
-                                glow.addFilter(.blur(radius: 4))
-                                glow.stroke(string, with: .color((inTune ? style.tuned : style.orange).opacity(0.3)), lineWidth: 4)
-                            }
-                        }
-                        let width = stringWidth(i)
-                        let stringColor = selected == i ? (inTune ? style.tuned : style.orange) : completed.contains(i) ? style.tuned.opacity(0.65) : style.ink.opacity(0.65)
-                        context.stroke(string, with: .color(stringColor), lineWidth: width)
-                        if instrument == .mandolin {
-                            context.stroke(string.offsetBy(dx: 4, dy: 0), with: .color(stringColor), lineWidth: width)
-                        }
-                        let circle = Path(ellipseIn: CGRect(x: post.x - 9, y: post.y - 9, width: 18, height: 18))
-                        context.fill(circle, with: .color(style.face))
-                        context.stroke(circle, with: .color(style.ink), lineWidth: 0.9)
-                        if completed.contains(i) {
-                            context.stroke(circle, with: .color(style.tuned), lineWidth: 1.6)
-                            var check = Path()
-                            check.move(to: CGPoint(x: post.x - 4, y: post.y))
-                            check.addLine(to: CGPoint(x: post.x - 1, y: post.y + 3))
-                            check.addLine(to: CGPoint(x: post.x + 4, y: post.y - 3))
-                            context.stroke(check, with: .color(style.tuned), style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
-                        } else {
-                            context.stroke(Path(ellipseIn: CGRect(x: post.x - 6, y: post.y - 6, width: 12, height: 12)), with: .color(selected == i ? (inTune ? style.tuned : style.orange) : style.ink.opacity(0.7)), lineWidth: selected == i ? 2 : 0.8)
-                        }
-                    }
-                }.accessibilityHidden(true)
+                InstrumentHeadDrawing(layout: layout, style: style, selected: selected, inTune: inTune,
+                                      completed: completed, widths: notes.indices.map(stringWidth))
                 if let index = lastCompleted, notes.indices.contains(index), !reduceMotion {
-                    let post = peg(index, size: size)
+                    let post = layout.target(index)
                     Circle().stroke(style.tuned, lineWidth: 1.5)
                         .frame(width: 22, height: 22)
                         .scaleEffect(1 + haloProgress)
@@ -289,17 +211,17 @@ struct Headstock: View {
                         .position(post).allowsHitTesting(false).accessibilityHidden(true)
                 }
                 ForEach(notes.indices, id: \.self) { i in
-                    let isLeft = i < half
-                    let post = peg(i, size: size)
+                    let isLeft = layout.left(i)
+                    let post = layout.target(i)
                     Button { select(i) } label: {
                         HStack(spacing: 5) {
                             if isLeft { stringLabel(i) }
                             Spacer(minLength: 0)
                             if !isLeft { stringLabel(i) }
-                        }.frame(width: size.width * 0.48, height: 44)
+                        }.frame(width: size.width * (layout.inlineBass ? 1 : 0.48), height: 44)
                             .contentShape(Rectangle())
                     }.buttonStyle(.plain)
-                        .position(x: size.width * (isLeft ? 0.24 : 0.76), y: post.y)
+                        .position(x: size.width * (layout.inlineBass ? 0.5 : isLeft ? 0.24 : 0.76), y: post.y)
                         .accessibilityIdentifier("string-\(notes.count - i)")
                         .accessibilityLabel("\(instrument == .mandolin ? "Course" : "String") \(notes.count - i), \(PitchMath.label(notes[i]))")
                         .accessibilityValue(completed.contains(i) ? (locked == i ? "Tuned, Locked" : "Tuned") : locked == i ? "Locked" : selected == i ? "Detected" : "Automatic")

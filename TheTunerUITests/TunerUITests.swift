@@ -103,6 +103,60 @@ final class TunerUITests: XCTestCase {
         XCTAssertEqual(app.buttons["string-3"].value as? String, "Locked")
         screenshot("ukulele-low-g-locked")
     }
+    func testEveryInstrumentArtworkAndTargets() {
+        launch()
+        let instruments: [(String, [String])] = [
+            ("Guitar", ["E2", "A2", "D3", "G3", "B3", "E4"]),
+            ("Ukulele", ["G4", "C4", "E4", "A4"]),
+            ("Bass", ["E1", "A1", "D2", "G2"]),
+            ("Violin", ["G3", "D4", "A4", "E5"]),
+            ("Viola", ["C3", "G3", "D4", "A4"]),
+            ("Cello", ["C2", "G2", "D3", "A3"]),
+            ("Banjo", ["G4", "D3", "G3", "B3", "D4"]),
+            ("Mandolin", ["G3", "D4", "A4", "E5"])
+        ]
+        for (name, notes) in instruments {
+            app.buttons["instrumentMenu"].tap()
+            let row = app.buttons["instrument-\(name)"]
+            for _ in 0..<4 where !row.isHittable { app.scrollViews.firstMatch.swipeUp() }
+            XCTAssertTrue(row.isHittable, name)
+            row.tap()
+            XCTAssertTrue(app.buttons["tuningMenu"].waitForExistence(timeout: 3))
+            XCTAssertEqual(app.scrollViews.count, 0)
+            for (index, note) in notes.enumerated() {
+                let string = app.buttons["string-\(notes.count - index)"]
+                XCTAssertTrue(string.label.contains(note), "\(name): \(note)")
+                XCTAssertTrue(string.isHittable, "\(name): \(note)")
+                XCTAssertGreaterThanOrEqual(string.frame.height, 44)
+                XCTAssertLessThanOrEqual(string.frame.maxY, app.frame.maxY)
+                string.tap()
+                XCTAssertTrue((string.value as? String)?.contains("Locked") == true)
+                app.buttons["autoString"].tap()
+            }
+            screenshot("headstock-\(name)")
+        }
+        app.buttons["instrumentMenu"].tap()
+        screenshot("instrument-silhouette-menu-bottom")
+        app.scrollViews.firstMatch.swipeDown()
+        screenshot("instrument-silhouette-menu-top")
+    }
+    func testExtendedBassArtworkAndTargets() {
+        launch()
+        app.buttons["instrumentMenu"].tap()
+        app.buttons["instrument-Bass"].tap()
+        for count in [5, 6] {
+            app.buttons["tuningMenu"].tap()
+            app.buttons["\(count)-string"].tap()
+            for number in 1...count {
+                let string = app.buttons["string-\(number)"]
+                XCTAssertTrue(string.isHittable)
+                string.tap()
+                XCTAssertTrue((string.value as? String)?.contains("Locked") == true)
+                app.buttons["autoString"].tap()
+            }
+            screenshot("headstock-bass-\(count)-strings")
+        }
+    }
     func testChromaticRingStatesAndLayout() {
         for (offset, expected) in [("-25", "A4"), ("-8", "A4"), ("0", "A4"), ("25", "A4"), ("75", "A♯4")] {
             launch(["--chromatic", "--cents", offset])

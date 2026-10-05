@@ -118,8 +118,8 @@ struct TunerView: View {
     }
     private var instrumentPanel: some View {
         CleanPanel(title: "Instrument") {
-            ForEach(Instrument.allCases) { value in
-                CleanRow(title: value.rawValue, selected: model.instrument == value) {
+            ForEach(Instrument.allCases.filter { $0 != .chromatic } + [.chromatic]) { value in
+                InstrumentPickerRow(instrument: value, selected: model.instrument == value) {
                     model.selectInstrument(value); instruments = false
                 }.accessibilityIdentifier("instrument-\(value.rawValue)")
             }
