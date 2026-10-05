@@ -173,6 +173,22 @@ final class TunerUITests: XCTestCase {
             app.terminate()
         }
     }
+    func testInstrumentPresentationStates() {
+        let examples = [("Guitar", 45), ("Ukulele", 60), ("Bass", 33), ("Violin", 69),
+                        ("Viola", 48), ("Cello", 50), ("Banjo", 67), ("Mandolin", 69)]
+        for (name, midi) in examples {
+            launch(["--instrument", name, "--silent"])
+            XCTAssertEqual(app.scrollViews.count, 0)
+            screenshot("idle-\(name)")
+            app.terminate()
+            launch(["--instrument", name, "--midi", String(midi), "--cents", "0", "--completed"])
+            for number in 1...app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "string-")).count {
+                XCTAssertTrue((app.buttons["string-\(number)"].value as? String)?.contains("Tuned") == true)
+            }
+            screenshot("completed-\(name)")
+            app.terminate()
+        }
+    }
     func testCustomBowedHeadstockTargets() {
         launch(["--instrument", "Violin", "--midi", "69", "--cents", "0"])
         app.buttons["tuningMenu"].tap()

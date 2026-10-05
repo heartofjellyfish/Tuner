@@ -9,13 +9,14 @@ struct InstrumentHeadLayout {
     var inlineBass: Bool { instrument == .bass && count <= 4 }
     var half: Int { (count + 1) / 2 }
     var breadth: CGFloat { instrument == .cello ? 1.08 : instrument == .viola ? 1.025 : 1 }
-    var artScale: CGFloat { min(size.width / (360 * breadth), size.height / 400) }
-    var artOrigin: CGPoint { CGPoint(x: (size.width - 400 * artScale * breadth) / 2, y: (size.height - 400 * artScale) * 0.25) }
+    var artHeight: CGFloat { instrument == .ukulele ? 340 : 400 }
+    var artScale: CGFloat { min(size.width / (360 * breadth), size.height / artHeight) }
+    var artOrigin: CGPoint { CGPoint(x: (size.width - 400 * artScale * breadth) / 2, y: (size.height - artHeight * artScale) * 0.35) }
     var nutY: CGFloat { instrument.bowed ? 0.9225 : shortDrone ? 0.78 : 0.92 }
     func artPoint(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
         CGPoint(x: artOrigin.x + x * artScale * breadth, y: artOrigin.y + y * artScale)
     }
-    func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint { artPoint(x * 400, y * 400) }
+    func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint { artPoint(x * 400, y * artHeight) }
     func left(_ i: Int) -> Bool {
         if inlineBass { return false } // Labels opposite the inline keys.
         if shortDrone { return i < 3 }
@@ -39,10 +40,15 @@ struct InstrumentHeadLayout {
         let paired = instrument == .mandolin
         let physicalRow = paired ? row * 2 + member : row
         let physicalRows = paired ? rows * 2 : rows
-        let top: CGFloat = instrument.bowed ? 0.37 : instrument == .mandolin ? 0.28 : 0.22
-        let span: CGFloat = instrument.bowed ? 0.44 : shortDrone ? 0.36 : instrument == .mandolin ? 0.43 : 0.52
+        let top: CGFloat = instrument.bowed ? 0.40 : instrument == .mandolin ? 0.28 : instrument == .ukulele ? 0.27 : 0.22
+        let span: CGFloat = instrument.bowed ? 0.42 : shortDrone ? 0.36 : instrument == .mandolin ? 0.43 : instrument == .ukulele ? 0.40 : 0.52
         let y = top + CGFloat(physicalRow) * span / CGFloat(max(1, physicalRows - 1))
-        return point(side ? (instrument.bowed ? 0.44 : 0.38) : (instrument.bowed ? 0.59 : 0.62), y)
+        if instrument.bowed {
+            // Follow the slanted pegbox walls, including custom string counts.
+            let x = side ? 0.40 + (y - 0.40) * 0.14 : 0.50 + (y - 0.40) * 0.27
+            return point(x, y)
+        }
+        return point(side ? 0.38 : 0.62, y)
     }
     func target(_ i: Int) -> CGPoint {
         if instrument.bowed, count == 4 {
@@ -73,7 +79,6 @@ struct InstrumentHeadDrawing: View {
     var body: some View {
         Canvas { context, _ in
             let instrument = layout.instrument
-            let size = layout.size
             func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { layout.point(x, y) }
             func stroke(_ path: Path, _ color: Color? = nil, _ width: CGFloat = 1.1) {
                 context.stroke(path, with: .color(color ?? style.ink.opacity(0.85)), style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
@@ -105,16 +110,20 @@ struct InstrumentHeadDrawing: View {
                         outline.addQuadCurve(to: p(0.50, 0.015), control: p(0.46, 0.07))
                         outline.addQuadCurve(to: p(0.63, 0.08), control: p(0.54, 0.07))
                         outline.addQuadCurve(to: p(0.71, 0.13), control: p(0.64, 0.16))
+                    case .bass:
+                        outline.addQuadCurve(to: p(0.36, 0.055), control: p(0.295, 0.045))
+                        outline.addLine(to: p(0.64, 0.055))
+                        outline.addQuadCurve(to: p(0.71, 0.13), control: p(0.705, 0.045))
                     default:
                         outline.addCurve(to: p(0.71, 0.13), control1: p(0.47, 0.015), control2: p(0.53, 0.015))
                     }
-                    outline.addLine(to: p(0.67, layout.nutY - 0.17))
-                    outline.addQuadCurve(to: p(0.59, layout.nutY), control: p(0.60, layout.nutY - 0.07))
+                    outline.addLine(to: p(0.67, layout.nutY - 0.20))
+                    outline.addCurve(to: p(0.59, layout.nutY), control1: p(0.665, layout.nutY - 0.12), control2: p(0.59, layout.nutY - 0.08))
                 }
                 outline.addLine(to: p(0.59, 1)); outline.addLine(to: p(0.41, 1))
                 outline.addLine(to: p(0.41, layout.nutY))
                 if !layout.inlineBass {
-                    outline.addQuadCurve(to: p(0.33, layout.nutY - 0.17), control: p(0.40, layout.nutY - 0.07))
+                    outline.addCurve(to: p(0.33, layout.nutY - 0.20), control1: p(0.41, layout.nutY - 0.08), control2: p(0.335, layout.nutY - 0.12))
                 }
                 outline.closeSubpath(); stroke(outline)
             }
@@ -155,11 +164,14 @@ struct InstrumentHeadDrawing: View {
                     } else if instrument != .bass {
                         let knob = Path(roundedRect: CGRect(x: handle.x - 12 * layout.artScale, y: handle.y - 14 * layout.artScale,
                                                            width: 24 * layout.artScale, height: 28 * layout.artScale), cornerRadius: 7 * layout.artScale)
-                        context.fill(knob, with: .color(style.face)); stroke(knob, style.ink.opacity(0.85), 1)
+                        context.fill(knob, with: .color(style.face)); stroke(knob, color, selected == i ? 1.4 : 1)
                     }
                     if instrument == .bass {
                         var clover = Path()
-                        func c(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: handle.x + x * layout.artScale, y: handle.y + y * layout.artScale) }
+                        func c(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+                            CGPoint(x: handle.x + x * (side ? 1 : -1) * layout.artScale,
+                                    y: handle.y + y * layout.artScale)
+                        }
                         // Three rounded lobes with a short stem, rather than a four-petal flower.
                         clover.move(to: c(16, -5))
                         clover.addCurve(to: c(7, -17), control1: c(7, -6), control2: c(11, -13))
@@ -168,7 +180,7 @@ struct InstrumentHeadDrawing: View {
                         clover.addCurve(to: c(7, 17), control1: c(-18, 31), control2: c(2, 32))
                         clover.addCurve(to: c(16, 5), control1: c(11, 13), control2: c(7, 6))
                         clover.closeSubpath()
-                        context.fill(clover, with: .color(style.face)); stroke(clover, style.ink.opacity(0.9), 1)
+                        context.fill(clover, with: .color(style.face)); stroke(clover, color, selected == i ? 1.4 : 1)
 
                     }
                     let endX = layout.stringX(i, member: member)
@@ -190,8 +202,10 @@ struct InstrumentHeadDrawing: View {
                 }
                 let target = layout.target(i)
                 if completed.contains(i) {
-                    let circle = Path(ellipseIn: CGRect(x: target.x - 9, y: target.y - 9, width: 18, height: 18))
-                    context.fill(circle, with: .color(style.face)); stroke(circle, style.tuned, 1.5)
+                    if !instrument.bowed && !(layout.shortDrone && i == 0) {
+                        let circle = Path(ellipseIn: CGRect(x: target.x - 9, y: target.y - 9, width: 18, height: 18))
+                        context.fill(circle, with: .color(style.face)); stroke(circle, style.tuned, 1.5)
+                    }
                     var check = Path(); check.move(to: CGPoint(x: target.x - 4, y: target.y))
                     check.addLine(to: CGPoint(x: target.x - 1, y: target.y + 3)); check.addLine(to: CGPoint(x: target.x + 4, y: target.y - 3))
                     stroke(check, style.tuned, 1.6)
@@ -199,9 +213,24 @@ struct InstrumentHeadDrawing: View {
                 if !instrument.bowed {
                     var guide = Path()
                     let side = layout.left(i)
+                    let outerKeyX = p(side ? 0.28 : 0.72, 0).x
+                    let endpoint = instrument == .mandolin ? p(side ? 0.20 : 0.80, 0).x : layout.inlineBass ? p(0.72, 0).x
+                        : outerKeyX + (side ? -1 : 1) * (instrument == .bass ? 39 : 20) * layout.artScale
                     guide.move(to: CGPoint(x: p(side ? 0.16 : 0.84, 0).x, y: target.y))
-                    guide.addLine(to: CGPoint(x: target.x + (side ? -13 : 13), y: target.y))
+                    guide.addLine(to: CGPoint(x: endpoint, y: target.y))
                     stroke(guide, style.muted.opacity(0.7), 0.7)
+                    if instrument == .mandolin {
+                        // A quiet bracket groups two physical strings under one course label.
+                        let bracketX = p(side ? 0.20 : 0.80, 0).x
+                        let first = layout.post(i), second = layout.post(i, member: 1)
+                        let arm = (side ? 1.0 : -1.0) * 4 * layout.artScale
+                        var bracket = Path()
+                        bracket.move(to: CGPoint(x: bracketX + arm, y: first.y))
+                        bracket.addLine(to: CGPoint(x: bracketX, y: first.y))
+                        bracket.addLine(to: CGPoint(x: bracketX, y: second.y))
+                        bracket.addLine(to: CGPoint(x: bracketX + arm, y: second.y))
+                        stroke(bracket, style.muted.opacity(0.5), 0.65)
+                    }
                 }
 
             }

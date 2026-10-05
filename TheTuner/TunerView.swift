@@ -103,7 +103,7 @@ struct TunerView: View {
             Button { instruments = true } label: { selectorLabel(model.instrument.rawValue, size: 23) }
                 .accessibilityIdentifier("instrumentMenu").accessibilityLabel("Instrument, \(model.instrument.rawValue)")
             if let tuning = model.tuning {
-                Button { tunings = true } label: { selectorLabel(tuning.name, size: 17) }
+                Button { tunings = true } label: { selectorLabel(tuning.isCustom ? tuning.name : tuning.name.components(separatedBy: " · ").first ?? tuning.name, size: 17) }
                     .accessibilityIdentifier("tuningMenu").accessibilityLabel("Tuning, \(tuning.name)")
             }
         }.buttonStyle(.plain).frame(maxWidth: .infinity, alignment: .leading)
