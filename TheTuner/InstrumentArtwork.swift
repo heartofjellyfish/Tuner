@@ -146,6 +146,10 @@ struct InstrumentHeadDrawing: View {
                 let nut = Path(CGRect(x: nutStart.x, y: nutStart.y, width: 80 * layout.artScale, height: 4 * layout.artScale))
                 stroke(nut, style.ink.opacity(0.8), 0.9)
             }
+            if instrument == .ukulele {
+                var flower = context
+                UkuleleFlowerArtwork.draw(in: &flower, layout: layout, style: style)
+            }
             for i in 0..<layout.count {
                 let color = selected == i ? (inTune ? style.tuned : style.orange) : completed.contains(i) ? style.tuned.opacity(0.7) : style.ink.opacity(0.7)
                 let copies = instrument == .mandolin ? 2 : 1
@@ -273,6 +277,36 @@ struct InstrumentHeadDrawing: View {
 
             }
         }.accessibilityHidden(true)
+    }
+}
+
+/// A small hibiscus inlay above the strings, drawn in the same fine-line language.
+private enum UkuleleFlowerArtwork {
+    static func draw(in context: inout GraphicsContext, layout: InstrumentHeadLayout, style: CleanStyle) {
+        let center = layout.point(0.5, 0.145)
+        context.translateBy(x: center.x, y: center.y)
+        context.scaleBy(x: layout.artScale, y: layout.artScale)
+        func polar(_ degrees: CGFloat, _ radius: CGFloat) -> CGPoint {
+            let angle = degrees * .pi / 180
+            return CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
+        }
+        var petals = Path()
+        petals.move(to: polar(-126, 6))
+        for petal in 0..<5 {
+            let angle = CGFloat(petal) * 72 - 90
+            petals.addCurve(to: polar(angle + 36, 6),
+                            control1: polar(angle - 27, 22), control2: polar(angle + 27, 22))
+        }
+        petals.closeSubpath()
+        context.fill(petals, with: .color(style.orange.opacity(0.08)))
+        let line = StrokeStyle(lineWidth: 0.9, lineCap: .round, lineJoin: .round)
+        context.stroke(petals, with: .color(style.orange.opacity(0.85)), style: line)
+        var stamen = Path()
+        stamen.move(to: .zero)
+        stamen.addCurve(to: CGPoint(x: 10, y: -12), control1: CGPoint(x: 5, y: -1), control2: CGPoint(x: 10, y: -7))
+        context.stroke(stamen, with: .color(style.orange.opacity(0.85)), style: line)
+        context.fill(Path(ellipseIn: CGRect(x: 8.7, y: -13.3, width: 2.6, height: 2.6)), with: .color(style.orange))
+        context.fill(Path(ellipseIn: CGRect(x: -1.5, y: -1.5, width: 3, height: 3)), with: .color(style.orange))
     }
 }
 
