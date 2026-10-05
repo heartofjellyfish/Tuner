@@ -204,10 +204,8 @@ struct InstrumentHeadDrawing: View {
                     let endX = layout.stringX(i, member: member)
                     var string = Path()
                     if instrument.bowed {
-                        // Show the string emerging at the peg, without a loose end on the face.
-                        let referenceY = (post.y - layout.artOrigin.y) / layout.artScale
-                        let wall = BowedHeadstockArtwork.wallPoint(at: referenceY, left: side)
-                        string.move(to: layout.artPoint(wall.x, wall.y))
+                        // Strings wind around the pegs inside the box, not around its outer wall.
+                        string.move(to: post)
                         let referenceX = (endX - layout.artOrigin.x) / (layout.artScale * layout.breadth)
                         let nutY = 369 - 4 * (referenceX - 190) / 79
                         string.addLine(to: layout.artPoint(referenceX, nutY))
@@ -224,6 +222,13 @@ struct InstrumentHeadDrawing: View {
                         }
                     }
                     stroke(string, color, widths[i])
+                    if instrument.bowed {
+                        let radius = 2.3 * layout.artScale
+                        let winding = Path(ellipseIn: CGRect(x: post.x - radius, y: post.y - radius,
+                                                            width: radius * 2, height: radius * 2))
+                        context.fill(winding, with: .color(style.face))
+                        stroke(winding, color, 0.75)
+                    }
                     if !instrument.bowed && !drone {
                         let circle = Path(ellipseIn: CGRect(x: post.x - 7, y: post.y - 7, width: 14, height: 14))
                         context.fill(circle, with: .color(style.face)); stroke(circle, color, selected == i ? 1.6 : 0.8)
