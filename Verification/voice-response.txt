@@ -1,0 +1,17 @@
+Chromatic response — 2026-10-04
+
+Default Voice: exponential visual smoothing 240 ms; short-term averaged deviation
+within ±8 ct for 350 ms qualifies green. Release hysteresis ±12 ct.
+Instantaneous deviation above 20 ct bypasses the average for feedback, to break green on clear drift.
+Fine: existing 90 ms smoothing and ±3 ct / 250 ms acquisition, ±5 ct release.
+Raw measured frequency/cents and string-mode criteria are unchanged.
+Pitch response preference persists; Voice/Fine switch lives in Settings.
+
+PASS: PCM integration fixture: phase-continuous A4, ±12 ct frequency modulation at 2 Hz,
+with harmonic content; stable green across five observations, mode switching and persistence.
+PASS: six-string progress/drift/reset regression on iPhone 16e.
+PASS: 2408 feature/DSP assertions; 2070 synthetic pitch cases.
+PASS: Release build; installed on paired iPhone 14 Pro.
+Scope: synthesized wavering input, not a recording of the user's voice.
+Tolerance/time constants are our product choices, not claims about TE's exact parameters.
+TE documents separate modes/ranges/damping: https://tonalenergyinc.squarespace.com/tet-user-guide-ios

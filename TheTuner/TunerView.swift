@@ -240,6 +240,12 @@ struct TunerView: View {
                 }
             }
             if model.instrument == .chromatic { holdPitchControl }
+            if model.instrument == .chromatic {
+                CleanRow(title: "Pitch response", detail: model.chromaticResponse == .voice ? "Voice · ±8 ct" : "Fine · ±3 ct", symbol: "waveform") {
+                    model.chromaticResponse = model.chromaticResponse == .voice ? .fine : .voice
+                }.accessibilityIdentifier("pitchResponse")
+                    .accessibilityValue(model.chromaticResponse == .voice ? "Voice, ±8 cents" : "Fine, ±3 cents")
+            }
             CleanRow(title: model.listening ? "Pause microphone" : "Resume microphone", detail: model.inputStatus.capitalized, symbol: "mic") {
                 if model.listening { model.stop() } else { model.start() }
             }.accessibilityIdentifier("microphoneToggle")
@@ -271,7 +277,10 @@ struct TunerView: View {
                         .accessibilityValue(theme == color ? "Selected" : "")
                 }
             }
-            Text("Settles green within ±3 cents").font(.system(size: 12)).foregroundStyle(style.muted).padding(.top, 16)
+            Text(model.instrument == .chromatic && model.chromaticResponse == .voice
+                 ? "Voice: green when the short-term average settles within ±8 cents."
+                 : "Settles green within ±3 cents")
+                .font(.system(size: 12)).foregroundStyle(style.muted).padding(.top, 16)
             Text("Tap a string to lock it. Tap AUTO to release. In Chromatic, use Hold note to keep a target.")
                 .font(.system(size: 13)).foregroundStyle(style.muted).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
             Text("Audio stays on your device.").font(.system(size: 12)).foregroundStyle(style.muted)

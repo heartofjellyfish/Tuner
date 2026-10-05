@@ -212,6 +212,14 @@ enum PitchMath {
 }
 
 /// Temporal qualification belongs to presentation, not to the measured pitch.
+enum ChromaticResponse: String {
+    case voice, fine
+    var tolerance: Double { self == .voice ? 8 : 3 }
+    var releaseTolerance: Double { self == .voice ? 12 : 5 }
+    var smoothingTime: Double { self == .voice ? 0.24 : 0.09 }
+    var settlingTime: Double { self == .voice ? 0.35 : 0.25 }
+}
+
 struct TuningFeedback {
     private(set) var inTune = false
     private var target: Int?
@@ -219,19 +227,20 @@ struct TuningFeedback {
     private var awaySince: Double?
     private var armed = true
     private var lastReward = -Double.infinity
-    mutating func update(cents: Double, target: Int, now: Double) -> Bool {
+    mutating func update(cents: Double, target: Int, now: Double, tolerance: Double = 3,
+                         releaseTolerance: Double = 5, settlingTime: Double = 0.25) -> Bool {
         if self.target != target {
             self.target = target; inTune = false; nearSince = nil; awaySince = nil; armed = true
         }
-        if abs(cents) > 5 {
+        if abs(cents) > releaseTolerance {
             inTune = false; nearSince = nil
             if awaySince == nil { awaySince = now }
             if now - (awaySince ?? now) >= 0.4 { armed = true }
         } else {
             awaySince = nil
-            if abs(cents) <= 3 {
+            if abs(cents) <= tolerance {
                 if nearSince == nil { nearSince = now }
-                if now - (nearSince ?? now) >= 0.25 { inTune = true }
+                if now - (nearSince ?? now) >= settlingTime { inTune = true }
             } else { nearSince = nil }
         }
         if inTune && armed && now - lastReward >= 1.5 {

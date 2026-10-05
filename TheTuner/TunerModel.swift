@@ -162,6 +162,12 @@ private final class AudioDriver {
     private let successSound = SuccessSound()
     private var feedbackMutedUntil = -Double.infinity
     private var feedback = TuningFeedback()
+    @Published var chromaticResponse = ChromaticResponse(rawValue: UserDefaults.standard.string(forKey: "chromatic-response") ?? "voice") ?? .voice {
+        didSet {
+            UserDefaults.standard.set(chromaticResponse.rawValue, forKey: "chromatic-response")
+            feedback.reset(); inTune = false; recalculate()
+        }
+    }
     private var visualTime: Double = 0
     @Published private(set) var level = 0.0
     @Published private(set) var inputEnvelope = Array(repeating: 0.0, count: 9)
@@ -205,6 +211,7 @@ private final class AudioDriver {
             UserDefaults.standard.set(instrument.rawValue, forKey: "instrument")
             UserDefaults.standard.removeObject(forKey: "show-cents")
             successSoundEnabled = true
+            chromaticResponse = .voice
             for value in Instrument.allCases { UserDefaults.standard.removeObject(forKey: "tuning-\(value.rawValue)") }
         }
         if args.contains("--preview") {
@@ -216,12 +223,13 @@ private final class AudioDriver {
             frequency = PitchMath.frequency(target) * pow(2, previewCents / 1200.0)
             recalculate()
         }
+        if args.contains("--fine-response") { chromaticResponse = .fine }
         if args.contains("--completed"), instrument != .chromatic {
             for index in notes.indices { _ = progress.update(index: index, cents: 0, stable: true, now: 0) }
         }
         if args.contains("--silent") { demo = true; clearReading() }
         if args.contains("--denied") { demo = true; denied() }
-        if args.contains("--progress-test") || args.contains("--signal-test") || args.contains("--feedback-test") || args.contains("--weak-input") || args.contains("--noise-floor") {
+        if args.contains("--voice-test") || args.contains("--progress-test") || args.contains("--signal-test") || args.contains("--feedback-test") || args.contains("--weak-input") || args.contains("--noise-floor") {
             demo = true; signalFixture = true; feedbackFixture = args.contains("--feedback-test"); clearReading()
         }
         #endif
@@ -326,7 +334,9 @@ private final class AudioDriver {
                 guard !Task.isCancelled else { return }
                 let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count))!
                 buffer.frameLength = AVAudioFrameCount(count)
-                if progressScenario {
+                if ProcessInfo.processInfo.arguments.contains("--voice-test") {
+                    Self.fillVoiceFixture(buffer, frame: frame)
+                } else if progressScenario {
                     let guitarNotes = [40,45,50,55,59,64]
                     let target = frame < 210 ? guitarNotes[min(5, frame / 35)] : 40
                     let gain = frame >= 210 && frame < 245 ? 0.0 : 1.0
@@ -347,6 +357,18 @@ private final class AudioDriver {
                 }
                 try? await Task.sleep(for: .milliseconds(43))
             }
+        }
+    }
+    private static func fillVoiceFixture(_ buffer: AVAudioPCMBuffer, frame: Int) {
+        let count = Int(buffer.frameLength)
+        let depth = pow(2.0, 12.0 / 1200.0) - 1.0
+        for i in 0..<count {
+            let time = Double(frame * count + i) / 48000.0
+            let carrier = 2.0 * Double.pi * 440.0 * time
+            let modulation = 440.0 * depth / 2.0 * (1.0 - cos(4.0 * Double.pi * time))
+            let phase = carrier + modulation
+            let value = 0.15 * sin(phase) + 0.08 * sin(phase * 2.0)
+            buffer.floatChannelData![0][i] = Float(value)
         }
     }
     private static func fillFixture(_ buffer: AVAudioPCMBuffer, frame: Int, frequency: Double, gain: Double) {
@@ -444,12 +466,24 @@ private final class AudioDriver {
         recalculate(preserveVisual: true)
         if previousNote != note || returning { visualCents = cents }
         else {
-            let alpha = 1 - exp(-max(0, now - visualTime) / 0.09)
+            let timeConstant = instrument == .chromatic ? chromaticResponse.smoothingTime : 0.09
+            let alpha = 1 - exp(-max(0, now - visualTime) / timeConstant)
             visualCents += alpha * (cents - visualCents)
         }
         visualTime = now
         if let note {
-            let rewarded = feedback.update(cents: cents, target: note, now: now)
+            let rewarded: Bool
+            if instrument == .chromatic {
+                // Voice feedback evaluates the displayed short-term average, but
+                // substantial instantaneous drift still breaks the green state.
+                let evaluated = chromaticResponse == .voice && abs(cents) <= 20 ? visualCents : cents
+                rewarded = feedback.update(cents: evaluated, target: note, now: now,
+                                           tolerance: chromaticResponse.tolerance,
+                                           releaseTolerance: chromaticResponse.releaseTolerance,
+                                           settlingTime: chromaticResponse.settlingTime)
+            } else {
+                rewarded = feedback.update(cents: cents, target: note, now: now)
+            }
             inTune = feedback.inTune
             if instrument == .chromatic {
                 if rewarded { successCount += 1 }
@@ -485,7 +519,7 @@ private final class AudioDriver {
         selectedIndex = lockedIndex ?? notes.firstIndex(of: note!)
         cents = PitchMath.cents(frequency, target: note!, reference: reference)
         if !preserveVisual { visualCents = cents }
-        if demo && !signalFixture { inTune = abs(cents) <= 3 }
+        if demo && !signalFixture { inTune = abs(cents) <= (instrument == .chromatic ? chromaticResponse.tolerance : 3) }
     }
     private func clearReading() {
         frequency = nil; note = nil; cents = 0; visualCents = 0; recent.removeAll()

@@ -95,6 +95,19 @@ import Foundation
         check(intent.finishTone(), "calibration preserves pre-tone mic intent")
         intent.beginTone(active: true); intent.suspend(active: false)
         check(intent.resume(isActive: true), "tone background restores mic, never tone")
+        var voiceFeedback = TuningFeedback(), fineFeedback = TuningFeedback()
+        for frame in 0..<50 {
+            let cents = frame % 2 == 0 ? 6.0 : -6.0
+            let now = Double(frame) * 0.043
+            _ = voiceFeedback.update(cents: cents, target: 69, now: now, tolerance: 8, releaseTolerance: 12, settlingTime: 0.35)
+            _ = fineFeedback.update(cents: cents, target: 69, now: now)
+        }
+        check(voiceFeedback.inTune, "voice tolerance accepts modest variation")
+        check(!fineFeedback.inTune, "fine feedback retains strict tolerance")
+        _ = voiceFeedback.update(cents: 25, target: 69, now: 3, tolerance: 8, releaseTolerance: 12, settlingTime: 0.35)
+        check(!voiceFeedback.inTune, "voice still rejects clear pitch error")
+        _ = voiceFeedback.update(cents: 0, target: 70, now: 4, tolerance: 8, releaseTolerance: 12, settlingTime: 0.35)
+        check(!voiceFeedback.inTune, "changing note requalifies voice feedback")
         var progress = StringTuningProgress()
         check(!progress.update(index: 0, cents: 0, stable: false, now: 0), "single sample cannot complete string")
         for index in 0..<6 {

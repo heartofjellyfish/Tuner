@@ -127,6 +127,28 @@ final class TunerUITests: XCTestCase {
         XCTAssertEqual(app.otherElements["pitchDisplay"].value as? String, "Play a note")
         screenshot("chromatic-ring-silent")
     }
+    func testChromaticVoiceResponse() {
+        launch(["--chromatic", "--voice-test"])
+        let display = app.otherElements["pitchDisplay"]
+        expectation(for: NSPredicate(format: "label == %@ AND value CONTAINS %@", "A4", "IN TUNE"), evaluatedWith: display)
+        waitForExpectations(timeout: 5)
+        for _ in 0..<5 {
+            Thread.sleep(forTimeInterval: 0.3)
+            XCTAssertTrue((display.value as? String)?.contains("IN TUNE") == true)
+        }
+        screenshot("voice-wavering-stable")
+        app.buttons["settings"].tap()
+        let response = app.buttons["pitchResponse"]
+        XCTAssertTrue((response.value as? String)?.contains("Voice") == true)
+        response.tap()
+        XCTAssertTrue((response.value as? String)?.contains("Fine") == true)
+        app.terminate()
+        app.launchArguments = ["--preview", "--chromatic"]
+        app.launch()
+        app.buttons["settings"].tap()
+        XCTAssertTrue((app.buttons["pitchResponse"].value as? String)?.contains("Fine") == true)
+        app.buttons["pitchResponse"].tap()
+    }
     func testChromaticInstrumentDropdown() {
         launch(["--chromatic"])
         XCTAssertTrue(app.buttons["instrumentMenu"].isHittable)
