@@ -126,7 +126,9 @@ struct InstrumentHeadDrawing: View {
                     let side = layout.inlineBass || layout.left(i)
                     let handleX: CGFloat = drone ? 0.29 : side ? (instrument.bowed ? 0.29 : layout.inlineBass ? 0.34 : 0.28) : (instrument.bowed ? 0.76 : 0.72)
                     let handle = instrument.bowed ? layout.target(i) : CGPoint(x: p(handleX, 0).x, y: post.y)
-                    var axle = Path(); axle.move(to: post); axle.addLine(to: handle); stroke(axle, style.muted, 1)
+                    if !instrument.bowed {
+                        var axle = Path(); axle.move(to: post); axle.addLine(to: handle); stroke(axle, style.muted, 1)
+                    }
                     if instrument.bowed {
                         let radius = 25 * layout.artScale
                         let shaftEnd = CGPoint(x: handle.x + (side ? radius * 0.8 : -radius * 0.8), y: handle.y)
@@ -136,19 +138,16 @@ struct InstrumentHeadDrawing: View {
                         shaft.addLine(to: CGPoint(x: shaftEnd.x, y: shaftEnd.y + 5 * layout.artScale))
                         shaft.addLine(to: CGPoint(x: post.x, y: post.y + 4 * layout.artScale)); shaft.closeSubpath()
                         context.fill(shaft, with: .color(style.ink.opacity(0.14))); stroke(shaft, style.ink.opacity(0.8), 0.8)
-                        let rim = Path(ellipseIn: CGRect(x: handle.x - radius - 2, y: handle.y - radius * 0.91 - 1,
-                                                       width: radius * 2 + 4, height: radius * 1.82 + 2))
-                        context.fill(rim, with: .color(style.face)); stroke(rim, color, 1)
                         let knob = Path(ellipseIn: CGRect(x: handle.x - radius, y: handle.y - radius * 0.91,
                                                         width: radius * 2, height: radius * 1.82))
+                        context.fill(knob, with: .color(style.face))
                         context.fill(knob, with: .linearGradient(Gradient(colors: [style.ink.opacity(0.04), style.ink.opacity(0.16), style.ink.opacity(0.04)]),
                                                               startPoint: CGPoint(x: handle.x - radius, y: handle.y), endPoint: CGPoint(x: handle.x + radius, y: handle.y)))
-                        stroke(knob, style.ink.opacity(0.9), 0.9)
+                        stroke(knob, color, selected == i ? 1.5 : 0.9)
                     } else if instrument != .bass {
                         let knob = Path(roundedRect: CGRect(x: handle.x - 12 * layout.artScale, y: handle.y - 14 * layout.artScale,
                                                            width: 24 * layout.artScale, height: 28 * layout.artScale), cornerRadius: 7 * layout.artScale)
                         context.fill(knob, with: .color(style.face)); stroke(knob, style.ink.opacity(0.85), 1)
-                        stroke(knob.offsetBy(dx: -2 * layout.artScale, dy: 0), style.ink.opacity(0.35), 0.7)
                     }
                     if instrument == .bass {
                         var clover = Path()
@@ -186,8 +185,6 @@ struct InstrumentHeadDrawing: View {
                     var check = Path(); check.move(to: CGPoint(x: target.x - 4, y: target.y))
                     check.addLine(to: CGPoint(x: target.x - 1, y: target.y + 3)); check.addLine(to: CGPoint(x: target.x + 4, y: target.y - 3))
                     stroke(check, style.tuned, 1.6)
-                } else if selected == i && instrument.bowed {
-                    stroke(Path(ellipseIn: CGRect(x: target.x - 28 * layout.artScale, y: target.y - 25 * layout.artScale, width: 56 * layout.artScale, height: 50 * layout.artScale)), color, 1.3)
                 }
                 if !instrument.bowed {
                     var guide = Path()

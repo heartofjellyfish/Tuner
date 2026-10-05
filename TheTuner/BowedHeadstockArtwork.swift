@@ -56,12 +56,18 @@ enum BowedHeadstockArtwork {
         Surface("M 138 68 C 149 65 158 71 161 82 C 165 96 160 110 151 115 L 134 116 C 144 107 148 93 144 80 Z", 0.25),
         Surface("M 134 68 C 124 69 122 80 124 96 C 126 111 131 119 139 116 C 149 113 153 100 150 86 C 148 73 143 67 134 68 Z", 0.035)
     ]
-    static let detail: [Path] = [
-        contour("M 132 74 C 127 79 129 96 134 105 C 138 111 143 103 142 96 C 142 91 139 90 137 94"),
-        contour("M 179 14 C 174 31 173 44 167 51 M 185 26 C 191 44 195 63 195 82"),
-        contour("M 210 20 C 221 48 229 83 224 112 M 234 51 C 241 78 243 101 239 119"),
-        contour("M 149 151 C 158 223 170 308 186 360 M 205 179 C 225 217 243 289 251 354"),
-        contour("M 196 382 L 199 400 M 263 379 L 267 400")
+    // Only silhouette and construction edges are inked. The carved faces below are
+    // shading, not a stack of outlined slices competing with the live strings.
+    static let boxEdges: [Path] = [
+        contour("M 150 118 C 170 116 195 131 214 153 C 237 190 257 267 265 348 L 268 377 L 279 400 L 194 400 L 186 370 C 178 346 164 291 158 243 L 145 159 Z"),
+        contour("M 158 153 L 184 167 C 211 188 237 272 248 356 M 158 153 C 170 230 181 300 198 361"),
+        contour("M 186 369 L 269 364 L 270 373 L 190 378 Z")
+    ]
+    static let scrollEdges: [Path] = [
+        contour("M 134 68 C 134 60 148 55 153 48 C 160 33 163 8 178 11 C 190 5 196 9 205 15 C 219 2 230 25 237 50 C 246 78 249 90 247 98 C 253 95 257 98 257 110 C 257 123 252 132 246 132 L 238 127 L 226 145 C 214 139 209 141 199 142 C 184 150 168 143 157 121 L 139 116"),
+        contour("M 178 11 C 195 31 209 72 204 103 C 201 128 186 144 170 139"),
+        contour("M 134 68 C 124 69 122 80 124 96 C 126 111 131 119 139 116 C 149 113 153 100 150 86 C 148 73 143 67 134 68 Z"),
+        contour("M 132 77 C 129 84 131 99 135 103 C 140 108 144 100 140 95")
     ]
 
     static func draw(in context: inout GraphicsContext, layout: InstrumentHeadLayout, style: CleanStyle) {
@@ -75,15 +81,15 @@ enum BowedHeadstockArtwork {
                 .init(color: style.ink.opacity(surface.light), location: 0.52),
                 .init(color: style.ink.opacity(surface.light * 0.3), location: 1)
             ]), startPoint: CGPoint(x: 120, y: 100), endPoint: CGPoint(x: 269, y: 130)))
-            context.stroke(surface.path, with: .color(style.ink.opacity(0.86)), style: StrokeStyle(lineWidth: 1.25, lineCap: .round, lineJoin: .round))
+
         }
         for surface in box { render(surface) }
-        // Tapered holes along the near pegbox wall add the observed carved construction.
-        for center in [CGPoint(x: 149, y: 180), CGPoint(x: 161, y: 258), CGPoint(x: 174, y: 335)] {
-            let hole = Path(ellipseIn: CGRect(x: center.x - 2.5, y: center.y - 6, width: 5, height: 12))
-            context.stroke(hole, with: .color(style.ink.opacity(0.65)), lineWidth: 0.8)
+        for path in boxEdges {
+            context.stroke(path, with: .color(style.ink.opacity(0.76)), style: StrokeStyle(lineWidth: 1.15, lineCap: .round, lineJoin: .round))
         }
         for surface in scroll { render(surface) }
-        for path in detail { context.stroke(path, with: .color(style.ink.opacity(0.8)), style: StrokeStyle(lineWidth: 0.9, lineCap: .round)) }
+        for path in scrollEdges {
+            context.stroke(path, with: .color(style.ink.opacity(0.86)), style: StrokeStyle(lineWidth: 1.25, lineCap: .round, lineJoin: .round))
+        }
     }
 }
