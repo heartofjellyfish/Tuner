@@ -160,11 +160,14 @@ struct InstrumentHeadDrawing: View {
                     if instrument.bowed {
                         let radius = 25 * layout.artScale
                         let shaftEnd = CGPoint(x: handle.x + (side ? radius * 0.8 : -radius * 0.8), y: handle.y)
+                        let referenceY = (post.y - layout.artOrigin.y) / layout.artScale
+                        let upperWall = BowedHeadstockArtwork.wallPoint(at: referenceY - 4, left: side)
+                        let lowerWall = BowedHeadstockArtwork.wallPoint(at: referenceY + 4, left: side)
                         var shaft = Path()
-                        shaft.move(to: CGPoint(x: post.x, y: post.y - 4 * layout.artScale))
+                        shaft.move(to: layout.artPoint(upperWall.x, upperWall.y))
                         shaft.addLine(to: CGPoint(x: shaftEnd.x, y: shaftEnd.y - 5 * layout.artScale))
                         shaft.addLine(to: CGPoint(x: shaftEnd.x, y: shaftEnd.y + 5 * layout.artScale))
-                        shaft.addLine(to: CGPoint(x: post.x, y: post.y + 4 * layout.artScale)); shaft.closeSubpath()
+                        shaft.addLine(to: layout.artPoint(lowerWall.x, lowerWall.y)); shaft.closeSubpath()
                         context.fill(shaft, with: .color(style.ink.opacity(0.14))); stroke(shaft, style.ink.opacity(0.8), 0.8)
                         let knob = Path(ellipseIn: CGRect(x: handle.x - radius, y: handle.y - radius * 0.91,
                                                         width: radius * 2, height: radius * 1.82))
@@ -199,10 +202,22 @@ struct InstrumentHeadDrawing: View {
 
                     }
                     let endX = layout.stringX(i, member: member)
-                    var string = Path(); string.move(to: post)
-                    // The drone starts at the fifth fret; it never reaches the nut or peghead.
-                    if !drone { string.addLine(to: CGPoint(x: endX, y: p(0, layout.nutY).y + 4 * layout.artScale)) }
-                    string.addLine(to: CGPoint(x: endX + (instrument.bowed ? 3 * layout.artScale : 0), y: p(0, 1).y))
+                    var string = Path()
+                    if instrument.bowed {
+                        // Show the string emerging at the peg, without a loose end on the face.
+                        let referenceY = (post.y - layout.artOrigin.y) / layout.artScale
+                        let wall = BowedHeadstockArtwork.wallPoint(at: referenceY, left: side)
+                        string.move(to: layout.artPoint(wall.x, wall.y))
+                        let referenceX = (endX - layout.artOrigin.x) / (layout.artScale * layout.breadth)
+                        let nutY = 369 - 4 * (referenceX - 190) / 79
+                        string.addLine(to: layout.artPoint(referenceX, nutY))
+                        string.addLine(to: layout.artPoint(referenceX + 4, 400))
+                    } else {
+                        string.move(to: post)
+                        // The drone starts at the fifth fret; it never reaches the nut or peghead.
+                        if !drone { string.addLine(to: CGPoint(x: endX, y: p(0, layout.nutY).y + 4 * layout.artScale)) }
+                        string.addLine(to: CGPoint(x: endX, y: p(0, 1).y))
+                    }
                     if selected == i {
                         context.drawLayer { glow in
                             glow.addFilter(.blur(radius: 3)); glow.stroke(string, with: .color(color.opacity(0.2)), lineWidth: 4)

@@ -36,16 +36,43 @@ enum BowedHeadstockArtwork {
     // connected. Shaded faces use those same boundaries rather than old carved slices.
     static let box: [Surface] = [
         Surface("M 151 118 C 143 170 161 299 190 369 L 194 400 L 274 400 L 269 369 C 263 284 241 184 210 137 Z", 0.035),
-        Surface("M 210 137 C 241 184 263 284 269 369 L 252 370 C 245 277 221 187 188 174 C 183 169 177 163 171 161 Z", 0.10)
+        Surface("M 210 137 C 241 184 263 284 269 369 L 258 370 C 251 286 232 188 210 137 Z", 0.10)
     ]
     static let scroll: [Surface] = [
         Surface("M 134 68 C 145 61 153 53 158 36 C 164 16 169 8 182 11 C 191 13 198 19 204 26 C 227 48 241 78 241 101 C 241 128 226 145 205 145 C 181 145 158 128 139 116 Z", 0.075),
         Surface("M 182 11 C 191 13 198 19 204 26 C 227 48 241 78 241 101 C 241 128 226 145 205 145 C 184 145 165 133 151 123 C 172 135 193 123 199 101 C 205 76 197 48 182 27 Z", 0.14),
         Surface("M 134 68 C 124 69 122 80 124 96 C 126 111 131 119 139 116 C 149 113 153 100 150 86 C 148 73 143 67 134 68 Z", 0.035)
     ]
+    private static let leftWall = (start: CGPoint(x: 151, y: 118), c1: CGPoint(x: 143, y: 170),
+                                   c2: CGPoint(x: 161, y: 299), end: CGPoint(x: 190, y: 369))
+    private static let rightWall = (start: CGPoint(x: 210, y: 137), c1: CGPoint(x: 241, y: 184),
+                                    c2: CGPoint(x: 263, y: 284), end: CGPoint(x: 269, y: 369))
+    private static var boxOutline: Path {
+        var path = Path()
+        path.move(to: leftWall.start)
+        path.addCurve(to: leftWall.end, control1: leftWall.c1, control2: leftWall.c2)
+        path.addLine(to: CGPoint(x: 194, y: 400)); path.addLine(to: CGPoint(x: 274, y: 400))
+        path.addLine(to: rightWall.end)
+        path.addCurve(to: rightWall.start, control1: rightWall.c2, control2: rightWall.c1)
+        return path
+    }
+    // Peg shafts emerge at the visible wall; their hidden ends must not cross the face.
+    static func wallPoint(at y: CGFloat, left: Bool) -> CGPoint {
+        let wall = left ? leftWall : rightWall
+        func sample(_ t: CGFloat) -> CGPoint {
+            let u = 1 - t
+            return CGPoint(x: u*u*u*wall.start.x + 3*u*u*t*wall.c1.x + 3*u*t*t*wall.c2.x + t*t*t*wall.end.x,
+                           y: u*u*u*wall.start.y + 3*u*u*t*wall.c1.y + 3*u*t*t*wall.c2.y + t*t*t*wall.end.y)
+        }
+        var low: CGFloat = 0, high: CGFloat = 1
+        for _ in 0..<24 {
+            let middle = (low + high) / 2
+            if sample(middle).y < y { low = middle } else { high = middle }
+        }
+        return sample((low + high) / 2)
+    }
     static let boxEdges: [Path] = [
-        contour("M 151 118 C 143 170 161 299 190 369 L 194 400 L 274 400 L 269 369 C 263 284 241 184 210 137"),
-        contour("M 165 168 C 180 170 194 187 206 209 C 228 250 244 315 252 368 M 165 168 C 169 227 182 313 199 368"),
+        boxOutline,
         contour("M 190 369 L 269 365 L 270 374 L 191 378 Z")
     ]
     static let scrollEdges: [Path] = [
